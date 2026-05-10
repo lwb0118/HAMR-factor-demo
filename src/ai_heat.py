@@ -24,7 +24,8 @@ from pathlib import Path
 from .data_process import cross_rankpct, DATA_EXTERNAL
 
 
-def compute_ai_heat_from_panel(panel, github_data=None, github_ts=None, news_ts=None, community=None):
+def compute_ai_heat_from_panel(panel, github_data=None, github_ts=None,
+                               news_ts=None, community=None, search_ts=None):
     """
     Compute AIStateScore from market data + GitHub + News + Community.
 
@@ -92,12 +93,24 @@ def compute_ai_heat_from_panel(panel, github_data=None, github_ts=None, news_ts=
     else:
         daily['community_aiheat'] = 0.5
 
+    # --- Search AIHeat component ---
+    if search_ts is not None and len(search_ts) > 0:
+        daily['date_d'] = pd.to_datetime(daily['date']).dt.date
+        st = search_ts.copy()
+        st['date_d'] = pd.to_datetime(st['date']).dt.date
+        daily = daily.merge(st[['date_d', 'search_score']], on='date_d', how='left')
+        daily['search_aiheat'] = daily['search_score'].fillna(0).clip(-2, 2)
+        daily['search_aiheat'] = (daily['search_aiheat'] + 2) / 4  # [-2,2]→[0,1]
+    else:
+        daily['search_aiheat'] = 0.3  # low baseline
+
     # --- Combined AIHeat ---
     daily['AIHeat_raw'] = (
-        0.35 * daily['github_aiheat'] +
-        0.20 * daily['news_aiheat'] +
+        0.25 * daily['github_aiheat'] +
+        0.15 * daily['news_aiheat'] +
+        0.10 * daily['search_aiheat'] +
         0.10 * daily['community_aiheat'] +
-        0.35 * market_proxy
+        0.40 * market_proxy
     )
 
     # AIHeat_MA20

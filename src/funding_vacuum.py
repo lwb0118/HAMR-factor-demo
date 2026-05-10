@@ -98,13 +98,13 @@ def compute_liquidity_capacity(panel):
 
 def compute_trap_guard(quality_score, liquidity_capacity, panel=None):
     """
-    Compute TrapGuard — soft value-trap filter.
+    Soft value-trap guard.
 
-    Per framework:
-      TrapGuard = I(QualityScore > q40) × I(LiquidityCapacity > q30)
-                  × I(No severe negative announcement)
+    TrapGuard = I(QualityScore ok) × I(Liquidity ok)
+              × I(No severe negative forecast)
+              × I(No major bad news event)
 
-    Uses sigmoid-style soft boundary for robustness.
+    Uses panel columns when available: forecast_neg, EventRisk.
     """
     merged = quality_score[['date', 'code', 'QualityScore']].merge(
         liquidity_capacity[['date', 'code', 'LiquidityCapacity']],
@@ -119,5 +119,13 @@ def compute_trap_guard(quality_score, liquidity_capacity, panel=None):
     l_filter = 1.0 / (1.0 + np.exp(-15 * (l - 0.25)))
 
     merged['TrapGuard'] = (q_filter * l_filter).clip(0, 1)
+
+    # Forecast penalty: severe negative forecast → lower TrapGuard
+    if panel is not None and 'forecast_neg' in panel.columns:
+        fc = panel[['date', 'code', 'forecast_neg']].dropna()
+        merged = merged.merge(fc, on=['date', 'code'], how='left')
+        # Severe forecast warning → 40% reduction
+        penalty = merged['forecast_neg'].fillna(0) * 0.4
+        merged['TrapGuard'] = (merged['TrapGuard'] * (1 - penalty)).clip(0, 1)
 
     return merged[['date', 'code', 'TrapGuard']]

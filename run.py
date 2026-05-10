@@ -166,12 +166,17 @@ def main():
     github_ts = build_github_timeseries(token=GITHUB_TOKEN)
 
     from src.news_aiheat import build_news_timeseries
+    from src.ai_heat import load_search_aiheat
     print('  Fetching financial news AI intensity...')
     news_ts = build_news_timeseries()
+    search_ts = load_search_aiheat()
+    if search_ts is not None:
+        print(f'    Search AIHeat: {len(search_ts)} data points loaded')
     if github_ts is not None and len(github_ts) > 10:
         print(f'    {len(github_ts)} daily points, '
               f'{int(github_ts["stars_cum"].max())} cumulative stars')
-        ai_state = ai_heat.compute_ai_heat_from_panel(panel, github_ts=github_ts, news_ts=news_ts, community=community)
+        ai_state = ai_heat.compute_ai_heat_from_panel(panel, github_ts=github_ts,
+                news_ts=news_ts, community=community, search_ts=search_ts)
     else:
         from src.ai_heat import fetch_github_aiheat
         github_data = fetch_github_aiheat()
@@ -198,7 +203,13 @@ def main():
 
     vacuum = funding_vacuum.compute_funding_vacuum(panel, stock_attention_df=stock_attention_df)
     liq = funding_vacuum.compute_liquidity_capacity(panel)
-    trap = funding_vacuum.compute_trap_guard(qual, liq)
+    trap = funding_vacuum.compute_trap_guard(qual, liq, panel=panel)
+
+    # --- QuantDinger AI Flow (optional) ---
+    from src.quantdinger_flow import load_quantdinger_ai_flow
+    ai_flow_df = load_quantdinger_ai_flow()
+    if ai_flow_df is not None:
+        print(f'    QuantDinger AIFlow: {len(ai_flow_df)} rows')
     print('  FundingVacuum range: [{:.3f}, {:.3f}]'.format(
         vacuum['FundingVacuum'].min(), vacuum['FundingVacuum'].max()))
 
