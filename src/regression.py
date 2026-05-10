@@ -121,4 +121,32 @@ def regression_with_controls(panel, horizon=10):
         'n_dates': m3.get('n_dates', 0)
     }
 
+    # Model 4: + Industry FE (when industry col available)
+    if 'industry' in panel.columns:
+        cols = ['date', 'hamr_zscore', 'QualityScore', 'ResidualWeakness',
+                'dollar_volume', 'ret_20d', 'volatility_20d', 'industry', ret_col]
+        available = [c for c in cols if c in panel.columns]
+        df4 = panel[available].dropna()
+        betas = []
+        for _, grp in df4.groupby('date'):
+            if len(grp) < 20:
+                continue
+            try:
+                ind_dummies = pd.get_dummies(grp['industry'], prefix='ind')
+                X = np.column_stack([grp['hamr_zscore'].values] +
+                    [grp[c].values for c in ['QualityScore','ResidualWeakness',
+                     'dollar_volume','ret_20d','volatility_20d'] if c in grp.columns] +
+                    [ind_dummies.values])
+                y = grp[ret_col].values
+                coef = np.linalg.lstsq(np.column_stack([np.ones(len(X)), X]), y, rcond=None)[0]
+                betas.append(coef[1])
+            except Exception:
+                pass
+        if betas:
+            betas = np.array(betas)
+            m = float(betas.mean())
+            se = betas.std(ddof=1)/np.sqrt(len(betas)) if len(betas)>1 else 1
+            t = m/max(se,0.0001)
+            models['M4_+IndustryFE'] = {'beta': m, 't': t, 'n_dates': len(betas)}
+
     return models

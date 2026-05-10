@@ -55,9 +55,10 @@ def get_rebalance_dates(panel, freq='W-FRI'):
 # ======================================================================
 
 def build_topn_portfolio(panel, factor_col='hamr_zscore', top_n=30,
-                          rebalance_freq='W-FRI'):
+                          rebalance_freq='2W-FRI', side='long_only'):
     """
-    Market-neutral TopN portfolio.
+    TopN portfolio. side='long_only' for A-share reality.
+    """
 
     Long top_n stocks by factor, short bottom_n stocks.
     Equal weight within each leg.
@@ -90,22 +91,29 @@ def build_topn_portfolio(panel, factor_col='hamr_zscore', top_n=30,
 
         n = min(top_n, len(day) // 3)
         top = day.nlargest(n, factor_col)
-        bot = day.nsmallest(n, factor_col)
 
-        # Equal weights
-        long_w = {c: 1.0 / n for c in top['code'].tolist()}
-        short_w = {c: -1.0 / n for c in bot['code'].tolist()}
+        # Weights based on side
+        if side == 'long_only':
+            weights = {c: 1.0 / n for c in top['code'].tolist()}
+        else:
+            bot = day.nsmallest(n, factor_col)
+            long_w = {c: 1.0 / n for c in top['code'].tolist()}
+            short_w = {c: -1.0 / n for c in bot['code'].tolist()}
+            weights = {**long_w, **short_w}
+
+        n_long = n
+        n_short = n if side != 'long_only' else 0
 
         # Turnover
-        new_stocks = set(long_w.keys()) | set(short_w.keys())
-        old_stocks = prev_long | prev_short
+        new_stocks = set(weights.keys())
+        old_stocks = prev_long | (prev_short if side != 'long_only' else prev_long)
         turnover = len(new_stocks - old_stocks) + len(old_stocks - new_stocks)
         turnover_frac = turnover / max(1, len(new_stocks))
 
         # Gross return
         gross_ret = 0.0
         n_valid = 0
-        for code, w in {**long_w, **short_w}.items():
+        for code, w in weights.items():
             code_data = panel[(panel['code'] == code) &
                               (panel['date'].isin([entry_date, exit_date]))]
             if code_data['date'].nunique() == 2:

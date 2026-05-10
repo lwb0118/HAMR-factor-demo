@@ -18,33 +18,40 @@ from scipy import stats
 
 def test_attention_recovery(panel, horizon=10):
     """
-    Test: Do high-HAMR stocks experience attention recovery?
+    Test attention recovery: do high-HAMR stocks see future attention increase?
 
-    Proxy for attention: turnover change, volume change.
+    Uses turnover/dollar_volume change as attention proxy.
     """
     ret_col = f'fwd_{horizon}d'
     if ret_col not in panel.columns:
         return None
 
-    valid = panel.dropna(subset=['hamr_zscore', 'MismatchScore', 'ResidualWeakness'])
+    valid = panel.dropna(subset=['hamr_zscore', 'turnover', 'dollar_volume'])
+    if len(valid) < 50:
+        return None
 
-    # Attention proxy: correlation between HAMR and future turnover change
-    correlations = []
+    # Future turnover change
+    valid['fwd_turnover'] = valid.groupby('code')['turnover'].shift(-horizon)
+    valid['turnover_change'] = valid['fwd_turnover'] / (valid['turnover'] + 0.01)
+
+    # IC between HAMR and future attention change
+    ics = []
     for date, grp in valid.groupby('date'):
         if len(grp) < 10:
             continue
-        ic, _ = stats.spearmanr(grp['hamr_zscore'], grp[ret_col])
-        correlations.append(ic)
+        from scipy import stats
+        ic, _ = stats.spearmanr(grp['hamr_zscore'], grp['turnover_change'])
+        ics.append(ic)
 
-    if not correlations:
+    if not ics:
         return None
-
-    cors = np.array(correlations)
+    ics = np.array(ics)
     return {
-        'mean_ic': float(cors.mean()),
-        'icir': float(cors.mean() / cors.std()) if cors.std() > 0 else 0,
-        'pct_positive': float(np.mean(cors > 0)),
-        'n_dates': len(cors)
+        'mean_ic': float(ics.mean()),
+        'icir': float(ics.mean() / ics.std()) if ics.std() > 0 else 0,
+        'pct_positive': float(np.mean(ics > 0)),
+        'n_dates': len(ics),
+        'attention_variable': 'turnover_change'
     }
 
 
