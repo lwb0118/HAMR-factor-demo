@@ -135,15 +135,36 @@ def _compute_nonfundamental_proxy(panel):
 
 
 def _compute_nonfundamental_with_events(panel, events):
-    """
-    Full NonFundamentalOK using event/announcement data.
+    """Full NonFundamentalOK using event/announcement data.
 
-    events should have columns: [code, date, event_type, severity]
-    where event_type ∈ {earnings_downgrade, news_shock, leverage_stress,
-                         governance_risk, regulator_action}
+    Required columns: code, date, event_type, severity
     """
-    # Production implementation
-    return _compute_nonfundamental_proxy(panel)
+    df = panel.copy()
+    ev = events.copy()
+    df['date'] = pd.to_datetime(df['date'])
+    ev['date'] = pd.to_datetime(ev['date'])
+
+    if 'severity' not in ev.columns:
+        ev['severity'] = 1.0
+
+    ev_daily = (
+        ev.groupby(['date', 'code'])['severity']
+        .sum()
+        .reset_index()
+        .rename(columns={'severity': 'event_severity'})
+    )
+
+    df = df.merge(ev_daily, on=['date', 'code'], how='left')
+    df['event_severity'] = df['event_severity'].fillna(0.0)
+    df['event_bad_rank'] = cross_rankpct(df, 'event_severity').fillna(0.0)
+
+    base = _compute_nonfundamental_proxy(df)
+    df = df.merge(base, on=['date', 'code'], how='left')
+    df['NonFundamentalOK'] = (
+        df['NonFundamentalOK'].fillna(0.5) * (1.0 - 0.7 * df['event_bad_rank'])
+    ).clip(0, 1)
+
+    return df[['date', 'code', 'NonFundamentalOK']]
 
 
 def compute_mispricing_pressure(mismatch_score, residual_weakness,

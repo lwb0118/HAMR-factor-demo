@@ -99,18 +99,19 @@ def compute_ai_heat_from_panel(panel, github_data=None, github_ts=None,
         st = search_ts.copy()
         st['date_d'] = pd.to_datetime(st['date']).dt.date
         daily = daily.merge(st[['date_d', 'search_score']], on='date_d', how='left')
-        daily['search_aiheat'] = daily['search_score'].fillna(0).clip(-2, 2)
-        daily['search_aiheat'] = (daily['search_aiheat'] + 2) / 4  # [-2,2]→[0,1]
+        daily['search_aiheat'] = (
+            1.0 / (1.0 + np.exp(-daily['search_score'].fillna(0.0)))
+        ).clip(0, 1)
     else:
-        daily['search_aiheat'] = 0.3  # low baseline
+        daily['search_aiheat'] = 0.5
 
-    # --- Combined AIHeat (weights per doc: 0.30/0.25/0.20/0.10/0.15) ---
+    # --- Combined AIHeat ---
     daily['AIHeat_raw'] = (
-        0.30 * daily['github_aiheat'] +
-        0.20 * daily['news_aiheat'] +
-        0.15 * daily['search_aiheat'] +
-        0.10 * daily['community_aiheat'] +
-        0.25 * market_proxy
+        0.30 * daily['github_aiheat']
+        + 0.25 * daily['search_aiheat']
+        + 0.20 * daily['news_aiheat']
+        + 0.10 * daily['community_aiheat']
+        + 0.15 * market_proxy
     )
 
     # AIHeat_MA20

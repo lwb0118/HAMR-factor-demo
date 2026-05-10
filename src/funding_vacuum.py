@@ -59,18 +59,30 @@ def compute_funding_vacuum(panel, stock_attention_df=None, positive_ai_flow_df=N
 
     # === Stock Attention (from guba, news, search) ===
     if stock_attention_df is not None and len(stock_attention_df) > 0:
-        sa = stock_attention_df[['code', 'stock_attention_raw']].copy()
-        sa = sa.drop_duplicates(subset=['code'])
-        df = df.merge(sa, on='code', how='left')
+        sa = stock_attention_df.copy()
+        if 'date' in sa.columns and 'date' in df.columns:
+            sa['date'] = pd.to_datetime(sa['date'])
+            df['date'] = pd.to_datetime(df['date'])
+            sa = sa[['date', 'code', 'stock_attention_raw']].drop_duplicates(['date', 'code'])
+            df = df.merge(sa, on=['date', 'code'], how='left')
+        else:
+            sa = sa[['code', 'stock_attention_raw']].drop_duplicates('code')
+            df = df.merge(sa, on='code', how='left')
         df['StockAttention'] = cross_rankpct(df, 'stock_attention_raw').fillna(0.5)
     else:
         df['StockAttention'] = 0.5
 
-    # === Positive AI Flow (placeholder) ===
+    # === Positive AI Flow ===
     if positive_ai_flow_df is not None and len(positive_ai_flow_df) > 0:
-        af = positive_ai_flow_df[['code', 'ai_flow']].copy()
-        af = af.drop_duplicates(subset=['code'])
-        df = df.merge(af, on='code', how='left')
+        af = positive_ai_flow_df.copy()
+        if 'date' in af.columns and 'date' in df.columns:
+            af['date'] = pd.to_datetime(af['date'])
+            df['date'] = pd.to_datetime(df['date'])
+            af = af[['date', 'code', 'ai_flow']].drop_duplicates(['date', 'code'])
+            df = df.merge(af, on=['date', 'code'], how='left')
+        else:
+            af = af[['code', 'ai_flow']].drop_duplicates('code')
+            df = df.merge(af, on='code', how='left')
         df['PositiveAIFlow'] = cross_rankpct(df, 'ai_flow').fillna(0.5)
     else:
         df['PositiveAIFlow'] = 0.5
@@ -124,7 +136,8 @@ def compute_trap_guard(quality_score, liquidity_capacity, panel=None):
     if panel is not None and 'forecast_neg' in panel.columns:
         fc = panel[['date', 'code', 'forecast_neg']].drop_duplicates(['date', 'code'])
         merged = merged.merge(fc, on=['date', 'code'], how='left')
-        penalty = merged['forecast_neg'].fillna(0) * 0.4
-        merged['TrapGuard'] = (merged['TrapGuard'] * (1 - penalty)).clip(0, 1)
+        penalty = merged['forecast_neg'].fillna(0).clip(0, 1) * 0.40
+        merged['TrapGuard'] = (merged['TrapGuard'] * (1.0 - penalty)).clip(0, 1)
+        merged.drop(columns=['forecast_neg'], inplace=True)
 
     return merged[['date', 'code', 'TrapGuard']]

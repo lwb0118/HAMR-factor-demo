@@ -18,16 +18,18 @@ from sklearn.metrics.pairwise import cosine_similarity
 from .data_process import cross_rankpct
 
 
-def compute_template_affinity(panel, n_clusters=3, min_industry_stocks=5):
-    """
-    KMeans-based template clustering.
+def compute_template_affinity(
+    panel,
+    n_clusters=3,
+    min_industry_stocks=5,
+    recent_only=False,
+    recent_days=20,
+    min_stocks_per_day=20,
+):
+    """KMeans-based hot-template clustering.
 
-    1. Each date: select hot stocks by ret_20d + turnover + volume spike
-    2. Extract feature vectors (market cap, volatility, momentum, reversal,
-       turnover, volume spike)
-    3. KMeans cluster → k template centroids
-    4. For each stock: cosine similarity to nearest centroid
-    5. MismatchScore = 1 - industry/date RankPct(TemplateAffinity)
+    recent_only=True  : quick demo, only recent_days.
+    recent_only=False : full historical academic backtest.
     """
     df = panel.copy()
     dates = sorted(df['date'].unique())
