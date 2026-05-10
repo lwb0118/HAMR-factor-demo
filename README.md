@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="results/figures/quintile_returns.png" width="550" alt="HAMR Quintile Returns"/>
+</p>
+
 # HAMR Factor — HAMR Mispricing Reversion Research
 
 > **《AI 同质化交易错杀修复》因子 — 学术验证与复现**
@@ -253,17 +257,28 @@ Step 7: Publication-Quality Visualizations
 
 ## 📊 Key Charts
 
-Generated figures (saved to `results/charts/`):
+### 20-Day Quintile Returns
+<p align="center">
+  <img src="results/figures/quintile_returns.png" width="500" alt="Quintile Returns"/>
+</p>
 
-| Chart | Description |
-|-------|-------------|
-| `ic_timeseries_*.png` | Daily IC + cumulative IC per horizon |
-| `ic_decay_analysis.png` | ICIR and NW t-stat across horizons |
-| `ic_distribution_*.png` | IC distribution with normal fit |
-| `quintile_returns.png` | Q1–Q5 portfolio returns |
-| `ai_heat_state.png` | AIHeat state time series |
-| `factor_correlation.png` | Sub-component correlation heatmap |
-| `component_attribution.png` | IC contribution per sub-variable |
+### IC Time Series & Distribution
+<p align="center">
+  <img src="results/figures/ic_timeseries_20d.png" width="400" alt="IC 20d"/>
+  <img src="results/figures/ic_distribution_20d.png" width="400" alt="IC Dist 20d"/>
+</p>
+
+### IC Decay Across Horizons
+<p align="center">
+  <img src="results/figures/ic_decay_analysis.png" width="500" alt="IC Decay"/>
+</p>
+
+### AIHeat State & Factor Correlation
+<p align="center">
+  <img src="results/figures/ai_heat_state.png" width="500" alt="AIHeat State"/>
+</p>
+
+All figures: `results/figures/`
 
 ---
 
