@@ -116,9 +116,9 @@ def compute_ai_heat_from_panel(panel, github_data=None, github_ts=None, news_ts=
     # AIHeat_Change
     daily['AIHeat_Change'] = daily['AIHeat_Z'] - daily['AIHeat_Z'].shift(20)
 
-    # AIStateScore
-    daily['AIHeat_Z_rank'] = daily['AIHeat_Z'].rank(pct=True)
-    daily['AIHeat_Chg_rank'] = daily['AIHeat_Change'].rank(pct=True)
+    # AIHeat_Z_rank (rolling, no look-ahead)
+    daily['AIHeat_Z_rank'] = _rolling_rank_pct(daily['AIHeat_Z'], 60)
+    daily['AIHeat_Chg_rank'] = _rolling_rank_pct(daily['AIHeat_Change'], 60)
     daily['AIStateScore'] = (
         daily['AIHeat_Z_rank'].fillna(0.5) *
         daily['AIHeat_Chg_rank'].fillna(0.5)
@@ -208,3 +208,47 @@ def fetch_gdelt_aiheat(keywords=None, token=None):
         if cache_file.exists():
             return json.loads(cache_file.read_text())
         return {'counts': {}, 'query': keywords}
+
+
+def _rolling_rank_pct(series, window=60):
+    """
+    Rolling rank percentile — no look-ahead.
+
+    Each value ranked within its trailing window.
+    Avoids full-sample rank which leaks future information.
+    """
+    result = pd.Series(0.5, index=series.index)
+    vals = series.values
+    for i in range(len(vals)):
+        start = max(0, i - window + 1)
+        win = vals[start:i+1]
+        if len(win) >= 10:
+            result.iloc[i] = np.mean(win < vals[i])
+    return result.clip(0, 1)
+
+
+def load_search_aiheat(csv_path=None):
+    """
+    Load search AIHeat from CSV file.
+
+    Expected CSV format: date,keyword,source,value
+    where source in {google_trends, baidu_index, wechat_index}
+    and value is relative search intensity.
+
+    If no CSV provided, returns None (search component disabled).
+    """
+    if csv_path is None:
+        csv_path = DATA_EXTERNAL / 'search_aiheat.csv'
+
+    csv_path = Path(csv_path) if not isinstance(csv_path, Path) else csv_path
+    if not csv_path.exists():
+        return None
+
+    df = pd.read_csv(csv_path, parse_dates=['date'])
+    df = df.pivot_table(index='date', columns=['source', 'keyword'],
+                         values='value', aggfunc='mean')
+    # Average across sources and keywords
+    df['search_score'] = df.mean(axis=1)
+    df['search_score'] = (df['search_score'] - df['search_score'].mean()) / \
+                          (df['search_score'].std() + 1e-10)
+    return df.reset_index()[['date', 'search_score']]
