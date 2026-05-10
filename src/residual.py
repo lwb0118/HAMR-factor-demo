@@ -23,19 +23,46 @@ from .data_process import cross_rankpct
 
 def compute_residual_weakness(panel):
     """
-    Compute ResidualWeakness — stock-specific return weakness.
+    Compute ResidualWeakness — market + industry + style residual.
 
-    Uses market-relative returns.
-    To enable industry-relative: uncomment the industry block.
+    Per HAMR Framework v2.0:
+      ResidualReturn_5d = Return_5d
+        - MarketReturn_5d
+        - IndustryReturn_5d
+        - SizeEffect
+        - MomentumEffect
+
+    Sequential orthogonalization ensures only stock-specific
+    (non-fundamental, non-style) weakness is captured.
     """
     df = panel.copy()
 
-    # Market-relative residual (stable baseline)
-    df['residual_ret_5d'] = df['ret_5d'] - df.groupby('date')['ret_5d'].transform('mean')
+    # Step 1: Market-relative
+    market_ret = df.groupby('date')['ret_5d'].transform('mean')
+    df['residual_ret'] = df['ret_5d'] - market_ret
 
-    # Industry-relative (enable when industry coverage is adequate):
-    # if 'industry' in df.columns and df['industry'].notna().sum() > 100:
-    #     df['residual_ret_5d'] = df['ret_5d'] - df.groupby(['date', 'industry'])['ret_5d'].transform('mean')
+    # Step 2: Industry-relative (remove sector effects)
+    if 'industry' in df.columns and df['industry'].notna().sum() > 100:
+        ind_ret = df.groupby(['date', 'industry'])['ret_5d'].transform('mean')
+        df['residual_ret'] = df['residual_ret'] - (ind_ret - market_ret)
+
+    # Step 3: Size effect (dollar_volume quartile)
+    if 'dollar_volume' in df.columns and df['dollar_volume'].notna().sum() > 100:
+        df['size_q'] = df.groupby('date')['dollar_volume'].transform(
+            lambda x: pd.qcut(x, 3, labels=['S','M','L'], duplicates='drop')
+            if x.nunique() >= 3 else pd.Series(['M']*len(x), index=x.index))
+        size_ret = df.groupby(['date', 'size_q'])['residual_ret'].transform('mean')
+        df['residual_ret'] = df['residual_ret'] - size_ret
+
+    # Step 4: Momentum effect (ret_20d tertile)
+    df['mom_q'] = df.groupby('date')['ret_20d'].transform(
+        lambda x: pd.qcut(x, 3, labels=['L','M','H'], duplicates='drop')
+        if x.nunique() >= 3 else pd.Series(['M']*len(x), index=x.index))
+    mom_ret = df.groupby(['date', 'mom_q'])['residual_ret'].transform('mean')
+    df['residual_ret'] = df['residual_ret'] - mom_ret
+
+    # Final cleanup
+    df['residual_ret_5d'] = df['residual_ret']
 
     # ResidualWeakness: higher = weaker residual performance
     df['_neg_resid'] = -df['residual_ret_5d']
