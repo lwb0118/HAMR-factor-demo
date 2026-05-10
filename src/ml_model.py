@@ -48,23 +48,22 @@ def build_ml_features(panel):
 
 def build_repair_target(panel, horizon=20):
     """
-    Build Y_repair target (walk-forward, no look-ahead).
+    Build Y_repair target with explicit future window (no look-ahead).
 
-    Y_repair = 1 if:
-      - Future residual return > top 30% on that future date
-      - AND no major negative forecast in the period
-
-    Labels are built using ONLY past/future information correctly partitioned.
+    Y_repair = 1 if future residual return > top 30%.
+    Uses explicit forward return column (computed by hamr_factor).
     """
     df = panel.copy()
     ret_col = f'fwd_{horizon}d'
     if ret_col not in df.columns:
         return df, None
 
+    # Future return already computed by compute_forward_returns
+    # residual = ret - market mean (same-day cross-section, no leak)
     df['future_resid'] = df[ret_col] - df.groupby('date')[ret_col].transform('mean')
     df['Y_repair'] = df.groupby('date')['future_resid'].transform(
         lambda x: (x > x.quantile(0.70)).astype(int) if len(x) > 10 else 0
-    )
+    ).fillna(0).astype(int)
     return df, 'Y_repair'
 
 
@@ -146,11 +145,16 @@ def run_ml_pipeline(panel):
         print(f'  Only {len(ml_df)} samples — insufficient for ML')
         return None
 
-    # Walk-forward split: strict temporal (no time leakage)
+    # Purged walk-forward: leave horizon days gap between train and test
+    # This prevents label overlap (information leakage)
+    horizon = 20
     dates = sorted(ml_df['date'].unique())
     split_idx = int(len(dates) * 0.7)
-    train_dates = set(dates[:split_idx])
-    test_dates = set(dates[split_idx:])
+    # Purge: remove `horizon` dates around the split point
+    purge_start = max(0, split_idx - horizon // 2)
+    purge_end = min(len(dates), split_idx + horizon // 2)
+    train_dates = set(dates[:purge_start])
+    test_dates = set(dates[purge_end:])
 
     train = ml_df[ml_df['date'].isin(train_dates)]
     test = ml_df[ml_df['date'].isin(test_dates)]

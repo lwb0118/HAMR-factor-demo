@@ -317,6 +317,33 @@ All figures: `results/figures/`
 
 ---
 
+## 📋 Implementation Status
+
+| Component | Status | Notes |
+|-----------|--------|-------|
+| HAMR_Final (5-layer formula) | ✅ Full | Multiplicative, RankPct [0,1] |
+| IC + ICIR + Newey-West | ✅ Full | 4 horizons, Bartlett kernel |
+| Per-date quintile test | ✅ Full | Cross-sectional grouping |
+| Control factor comparison | ✅ Full | Quality/Reversal/Q×R |
+| Tushare daily + daily_basic | ✅ Full | OHLCV + turnover + market cap |
+| Financial data (PIT) | ✅ Full | fina_indicator + income + cashflow |
+| Moneyflow / fund data | ✅ Full | Large/super-large order flow |
+| Trading constraints | ✅ Full | ST/IPO/limit/suspend |
+| Industry-neutral MismatchScore | ✅ Full | Per-industry RankPct |
+| GitHub AIHeat (multi-repo) | ✅ Full | QuantDinger + vnpy, 8957★ |
+| News AIHeat (East Money) | ✅ Full | Daily keyword intensity |
+| Guba community | ✅ Full | Stock-level + aggregate activity |
+| AIHeat rolling rank | ✅ Full | No look-ahead 60d window |
+| Forecast (earnings warnings) | ✅ Full | PIT-aligned, 88 negative flags |
+| NonFundamentalOK event chain | ✅ Full | NI + OCF + forecast penalties |
+| Portfolio backtest + costs | ✅ Full | TopN, turnover, 4 cost levels |
+| Fama-MacBeth (4-model) | ✅ Full | OLS + NW t-stat |
+| Placebo/randomization tests | ✅ Full | Shuffle AIHeat/Mismatch/Random |
+| ML repair prediction | ✅ Partial | Walk-forward; needs longer data |
+| Search_AIHeat (CSV) | ✅ Partial | CSV import; no live API |
+| GDELT / Google Trends | ❌ Blocked | GFW — East Money news instead |
+| Baidu/WeChat Index | ❌ Blocked | No public API |
+
 ## 📚 Selected References
 
 1. Peng, L., & Xiong, W. (2006). Investor attention, overconfidence
