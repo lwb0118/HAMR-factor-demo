@@ -88,3 +88,70 @@ def full_ic_analysis(panel, factor_col='hamr_zscore', horizons=(1, 5, 10, 20)):
         )
         results[str(h)] = {'stats': stats_dict, 'ic_series': ic_df}
     return results
+
+
+def run_placebo_tests(panel, factor_col='hamr_zscore', horizon=20, n_runs=100):
+    """
+    Placebo/randomization tests to validate HAMR IC significance.
+
+    Tests:
+      1. Shuffle AIHeat: randomize AIStateScore across dates
+      2. Shuffle Mismatch: randomize MismatchScore across stocks
+      3. Random factor: pure noise signal
+
+    Returns dict with null distributions for comparison.
+    """
+    ret_col = f'fwd_{horizon}d'
+    if ret_col not in panel.columns:
+        return {}
+
+    rng = np.random.default_rng(42)
+    base_ic = full_ic_analysis(panel, factor_col, (horizon,))
+    base_mean = base_ic[str(horizon)]['stats']['ic_mean']
+
+    results = {'hamr_ic': base_mean, 'n_runs': n_runs}
+
+    # Test 1: Shuffle AIStateScore across dates
+    if 'AIStateScore' in panel.columns:
+        null_ics = []
+        dates = panel['date'].unique()
+        ai_map = panel.groupby('date')['AIStateScore'].first()
+        for _ in range(n_runs):
+            shuffled_dates = rng.permutation(dates)
+            ai_shuffled = dict(zip(dates, ai_map.loc[shuffled_dates].values))
+            panel['_shuffled_ai'] = panel['date'].map(ai_shuffled)
+            panel['_shuffled_hamr'] = panel['hamr_zscore'] * panel['_shuffled_ai']
+            ic = compute_daily_rank_ic(panel, '_shuffled_hamr', ret_col)
+            null_ics.append(compute_ic_statistics(ic['ic'].values)['ic_mean'])
+        results['placebo_aiheat'] = {
+            'mean': float(np.mean(null_ics)),
+            'std': float(np.std(null_ics)),
+            'pct_above_base': float(np.mean(np.array(null_ics) > base_mean))
+        }
+
+    # Test 2: Shuffle MismatchScore across stocks
+    if 'MismatchScore' in panel.columns:
+        null_ics = []
+        for _ in range(n_runs):
+            panel['_shuffled_mis'] = rng.permutation(panel['MismatchScore'].fillna(0.5).values)
+            ic = compute_daily_rank_ic(panel, '_shuffled_mis', ret_col)
+            null_ics.append(compute_ic_statistics(ic['ic'].values)['ic_mean'])
+        results['placebo_mismatch'] = {
+            'mean': float(np.mean(null_ics)),
+            'std': float(np.std(null_ics)),
+            'pct_above_base': float(np.mean(np.array(null_ics) > base_mean))
+        }
+
+    # Test 3: Random factor
+    null_ics = []
+    for _ in range(n_runs):
+        panel['_random'] = rng.normal(0, 1, len(panel))
+        ic = compute_daily_rank_ic(panel, '_random', ret_col)
+        null_ics.append(compute_ic_statistics(ic['ic'].values)['ic_mean'])
+    results['placebo_random'] = {
+        'mean': float(np.mean(null_ics)),
+        'std': float(np.std(null_ics)),
+        'pct_above_base': float(np.mean(np.array(null_ics) > base_mean))
+    }
+
+    return results
