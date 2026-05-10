@@ -6,8 +6,6 @@ data/*.csv
 data/*.json
 data/*.pkl
 data/external/
-results/charts/*.png
-results/figures/*.png
 *.egg-info/
 .venv/
 venv/
