@@ -181,10 +181,7 @@ def main():
     print('  AIStateScore range: [{:.3f}, {:.3f}]'.format(
         ai_state['AIStateScore'].min(), ai_state['AIStateScore'].max()))
 
-    try:
-        mismatch = template_cluster.compute_template_affinity(panel)
-    except ImportError:
-        mismatch = template_cluster.compute_template_affinity_proxy(panel)
+    mismatch = template_cluster.compute_template_affinity_proxy(panel)  # proxy: stable
     print('  MismatchScore range: [{:.3f}, {:.3f}]'.format(
         mismatch['MismatchScore'].min(), mismatch['MismatchScore'].max()))
 

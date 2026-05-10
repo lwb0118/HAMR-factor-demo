@@ -46,20 +46,8 @@ def compute_residual_weakness(panel):
         ind_ret = df.groupby(['date', 'industry'])['ret_5d'].transform('mean')
         df['residual_ret'] = df['residual_ret'] - (ind_ret - market_ret)
 
-    # Step 3: Size effect (dollar_volume quartile)
-    if 'dollar_volume' in df.columns and df['dollar_volume'].notna().sum() > 100:
-        df['size_q'] = df.groupby('date')['dollar_volume'].transform(
-            lambda x: pd.qcut(x, 3, labels=['S','M','L'], duplicates='drop')
-            if x.nunique() >= 3 else pd.Series(['M']*len(x), index=x.index))
-        size_ret = df.groupby(['date', 'size_q'])['residual_ret'].transform('mean')
-        df['residual_ret'] = df['residual_ret'] - size_ret
-
-    # Step 4: Momentum effect (ret_20d tertile)
-    df['mom_q'] = df.groupby('date')['ret_20d'].transform(
-        lambda x: pd.qcut(x, 3, labels=['L','M','H'], duplicates='drop')
-        if x.nunique() >= 3 else pd.Series(['M']*len(x), index=x.index))
-    mom_ret = df.groupby(['date', 'mom_q'])['residual_ret'].transform('mean')
-    df['residual_ret'] = df['residual_ret'] - mom_ret
+    # Step 3: Size & Momentum orthogonalization disabled
+    # (over-corrects in small samples; enable when N > 500)
 
     # Final cleanup
     df['residual_ret_5d'] = df['residual_ret']

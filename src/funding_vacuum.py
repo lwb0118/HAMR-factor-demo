@@ -76,12 +76,8 @@ def compute_funding_vacuum(panel, stock_attention_df=None, positive_ai_flow_df=N
         df['PositiveAIFlow'] = 0.5
 
     # === Funding Vacuum: inverse of composite crowding ===
-    if crowd_parts:
-        vacuum_raw = (df['CrowdingScore'] + df['StockAttention'] + df['PositiveAIFlow']) / 3
-        df['FundingVacuum'] = 1.0 - cross_rankpct(df, 'vacuum_raw')
-    else:
-        df['FundingVacuum'] = 0.5
-
+    df['_vacuum_raw'] = (df['CrowdingScore'] + df['StockAttention'] + df['PositiveAIFlow']) / 3
+    df['FundingVacuum'] = 1.0 - cross_rankpct(df, '_vacuum_raw')
     df['FundingVacuum'] = df['FundingVacuum'].fillna(0.5).clip(0, 1)
 
     return df[['date', 'code', 'FundingVacuum', 'CrowdingScore']]
