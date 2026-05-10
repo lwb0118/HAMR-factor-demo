@@ -20,43 +20,67 @@ import pandas as pd
 from .data_process import cross_rankpct
 
 
-def compute_funding_vacuum(panel):
+def compute_funding_vacuum(panel, stock_attention_df=None, positive_ai_flow_df=None):
     """
-    Compute FundingVacuum — higher = less crowded.
+    Compute FundingVacuum — higher = less crowded + less AI attention.
 
-    Uses main_net (institutional net flow from moneyflow) when available.
+    Per HAMR framework:
+      CrowdingScore = AvgRank(AbTurnover, AbAmount, IntradayVol, ret_mag)
+      FundingVacuum = 1 - AvgRank(CrowdingScore, StockAttention, PositiveAIFlow)
+
+    StockAttention: guba post activity (code-level, when available)
+    PositiveAIFlow: paper trading buy signals (placeholder for QuantDinger logs)
     """
     df = panel.copy()
 
+    # === Crowding Score ===
     crowd_parts = []
 
-    # Institutional flow signal (from moneyflow)
     if 'main_net' in df.columns and df['main_net'].notna().sum() > 50:
         crowd_parts.append(cross_rankpct(df, 'main_net').fillna(0.5))
 
-    # Abnormal turnover
     if 'ab_turnover' in df.columns and df['ab_turnover'].notna().sum() > 50:
         crowd_parts.append(cross_rankpct(df, 'ab_turnover').fillna(0.5))
     elif 'turnover' in df.columns and df['turnover'].notna().sum() > 50:
         crowd_parts.append(cross_rankpct(df, 'turnover').fillna(0.5))
 
-    # Abnormal amount
     if 'ab_amount' in df.columns and df['ab_amount'].notna().sum() > 50:
         crowd_parts.append(cross_rankpct(df, 'ab_amount').fillna(0.5))
 
-    # Intraday volatility
     if 'intraday_vol' in df.columns and df['intraday_vol'].notna().sum() > 50:
         crowd_parts.append(cross_rankpct(df, 'intraday_vol').fillna(0.5))
 
-    # Return magnitude
     crowd_parts.append(cross_rankpct(df, 'ret_5d').fillna(0.5))
 
-    if not crowd_parts:
-        df['FundingVacuum'] = 0.5
+    if crowd_parts:
+        df['CrowdingScore'] = sum(p for p in crowd_parts) / len(crowd_parts)
     else:
-        crowd_composite = sum(p for p in crowd_parts) / len(crowd_parts)
-        df['CrowdingScore'] = crowd_composite
-        df['FundingVacuum'] = 1.0 - cross_rankpct(df, 'CrowdingScore')
+        df['CrowdingScore'] = 0.5
+
+    # === Stock Attention (from guba, news, search) ===
+    if stock_attention_df is not None and len(stock_attention_df) > 0:
+        sa = stock_attention_df[['code', 'stock_attention_raw']].copy()
+        sa = sa.drop_duplicates(subset=['code'])
+        df = df.merge(sa, on='code', how='left')
+        df['StockAttention'] = cross_rankpct(df, 'stock_attention_raw').fillna(0.5)
+    else:
+        df['StockAttention'] = 0.5
+
+    # === Positive AI Flow (placeholder) ===
+    if positive_ai_flow_df is not None and len(positive_ai_flow_df) > 0:
+        af = positive_ai_flow_df[['code', 'ai_flow']].copy()
+        af = af.drop_duplicates(subset=['code'])
+        df = df.merge(af, on='code', how='left')
+        df['PositiveAIFlow'] = cross_rankpct(df, 'ai_flow').fillna(0.5)
+    else:
+        df['PositiveAIFlow'] = 0.5
+
+    # === Funding Vacuum: inverse of composite crowding ===
+    if crowd_parts:
+        vacuum_raw = (df['CrowdingScore'] + df['StockAttention'] + df['PositiveAIFlow']) / 3
+        df['FundingVacuum'] = 1.0 - cross_rankpct(df, 'vacuum_raw')
+    else:
+        df['FundingVacuum'] = 0.5
 
     df['FundingVacuum'] = df['FundingVacuum'].fillna(0.5).clip(0, 1)
 

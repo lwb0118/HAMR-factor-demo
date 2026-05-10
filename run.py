@@ -144,11 +144,13 @@ def main():
     print(f'  Cached: {cache_path}')
 
     # --- Guba community data ---
-    from src.guba_data import fetch_universe_posts, compute_community_aiheat
+    from src.guba_data import fetch_universe_posts, compute_community_aiheat, compute_stock_attention
     print(f'\n  Fetching Guba (stock forum) data...')
     guba_posts = fetch_universe_posts(codes, max_workers=3)
+    stock_attention_df = None
     if guba_posts:
         community = compute_community_aiheat(guba_posts)
+        stock_attention_df = compute_stock_attention(None, guba_posts)
         if community:
             print(f'    Community: {community["total_posts"]} posts / '
                   f'{community["n_stocks"]} stocks = {community["avg_posts"]:.0f} avg'
@@ -194,7 +196,7 @@ def main():
         mispricing['MispricingPressure'].min(),
         mispricing['MispricingPressure'].max()))
 
-    vacuum = funding_vacuum.compute_funding_vacuum(panel)
+    vacuum = funding_vacuum.compute_funding_vacuum(panel, stock_attention_df=stock_attention_df)
     liq = funding_vacuum.compute_liquidity_capacity(panel)
     trap = funding_vacuum.compute_trap_guard(qual, liq)
     print('  FundingVacuum range: [{:.3f}, {:.3f}]'.format(
