@@ -7,12 +7,11 @@
 > **《AI 同质化交易错杀修复》因子 — 学术验证与复现**
 
 <p align="center">
-  <b>HAMR (Homogeneous AI Mispricing Reversion)</b><br>
-  <em>Identifying Quality Stocks Mispriced by AI-Driven Template Trading</em>
+  <b>HAMR v1.0 Demo — Research Prototype</b><br>
+  <em>Not production-ready. See <a href="docs/LIMITATIONS.md">LIMITATIONS.md</a></em>
 </p>
 
-<p align="center">
-  <a href="#-intuition"><strong>Intuition</strong></a> ·
+---
   <a href="#-abstract"><strong>Abstract</strong></a> ·
   <a href="#-theory"><strong>Theory</strong></a> ·
   <a href="#-factor-construction"><strong>Factor</strong></a> ·

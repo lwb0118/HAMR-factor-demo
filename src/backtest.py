@@ -21,34 +21,55 @@ from scipy import stats
 # ======================================================================
 
 def quintile_test(panel, factor_col='hamr_zscore', return_col='fwd_5d',
-                   n_groups=5):
+                   n_groups=5, min_stocks_per_date=10):
     """
-    Sort stocks into quintiles by factor value, compute mean forward return.
+    Per-date cross-sectional quintile test.
 
-    Returns:
-        dict with group_means, group_stds, group_counts, spread, monotonicity
+    Each trading day, sort stocks into n_groups by factor value,
+    compute equal-weighted forward return per group.
+    Then average group returns across dates.
+
+    This is the standard academic methodology — NEVER mix dates.
     """
-    valid = panel[[factor_col, return_col]].dropna().copy()
-    if len(valid) < n_groups * 5:
-        raise ValueError(f'Need {n_groups * 5}+ obs, got {len(valid)}')
+    valid = panel[[factor_col, return_col, 'date']].dropna().copy()
 
-    valid['group'] = pd.qcut(
-        valid[factor_col].rank(method='first'),
-        n_groups, labels=list(range(n_groups)), duplicates='drop'
-    )
+    # Per-date group returns
+    date_group_returns = []
+    for date, grp in valid.groupby('date'):
+        if len(grp) < n_groups * 2:  # need enough stocks
+            continue
+        try:
+            grp['group'] = pd.qcut(
+                grp[factor_col].rank(method='first'),
+                n_groups, labels=list(range(n_groups)), duplicates='drop'
+            )
+            gret = grp.groupby('group')[return_col].mean()
+            for g in gret.index:
+                date_group_returns.append({'date': date, 'group': g,
+                                           'n_stocks': len(grp[grp['group'] == g]),
+                                           'return': gret[g]})
+        except Exception:
+            pass
 
-    gstats = valid.groupby('group')[return_col].agg(['mean', 'std', 'count'])
+    if not date_group_returns:
+        raise ValueError('No valid date-groups')
+
+    df_grp = pd.DataFrame(date_group_returns)
+
+    # Average across dates
+    gstats = df_grp.groupby('group')['return'].agg(['mean', 'std', 'count'])
     groups = sorted(gstats.index)
 
     group_means = {f'Q{g+1}': float(gstats.loc[g, 'mean']) for g in groups}
     group_stds = {f'Q{g+1}': float(gstats.loc[g, 'std']) for g in groups}
     group_counts = {f'Q{g+1}': int(gstats.loc[g, 'count']) for g in groups}
 
-    spread = group_means[f'Q{n_groups}'] - group_means['Q1']
+    n_groups_valid = len(groups)
+    spread = group_means[f'Q{n_groups_valid}'] - group_means['Q1']
 
     # Monotonicity
-    ranks = list(range(1, n_groups + 1))
-    rets = [group_means[f'Q{i+1}'] for i in range(n_groups)]
+    ranks = list(range(1, n_groups_valid + 1))
+    rets = [group_means[f'Q{i+1}'] for i in range(n_groups_valid)]
     mono, _ = stats.spearmanr(ranks, rets)
 
     return {
@@ -56,7 +77,7 @@ def quintile_test(panel, factor_col='hamr_zscore', return_col='fwd_5d',
         'group_stds': group_stds,
         'group_counts': group_counts,
         'spread': spread,
-        'spread_annualized': (1 + spread) ** (252 / 5) - 1,
+        'spread_annualized': (1 + spread) ** (252 / 20) - 1,  # 20d horizon
         'monotonicity': float(mono)
     }
 

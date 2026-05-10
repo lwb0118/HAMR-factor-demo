@@ -116,21 +116,19 @@ def fetch_universe_posts(codes, max_per_stock=80, max_workers=4):
     return results
 
 
-def compute_stock_attention(panel, guba_posts):
+def compute_stock_attention(panel, guba_posts, trade_date=None):
     """
     Compute StockAttention score per stock per date.
 
-    Combines:
-      - Post volume (total posts on first page → more = more discussion)
-      - Timestamp freshness (recent posts → active discussion)
+    Args:
+        trade_date: reference date (default: today). Used to compute recency.
 
-    Returns DataFrame with [code, stock_attention].
+    Returns DataFrame with [code, stock_attention_raw, guba_posts].
     """
-    if not guba_posts:
-        return None
-
-    rows = []
-    today = datetime.now().strftime('%Y-%m-%d')
+    from datetime import datetime, timedelta
+    if trade_date is None:
+        trade_date = datetime.now().strftime('%Y-%m-%d')
+    cutoff = (datetime.strptime(trade_date, '%Y-%m-%d') - timedelta(days=3)).strftime('%Y-%m-%d')
     for code, data in guba_posts.items():
         n_posts = data.get('total_posts', 0)
         if n_posts == 0:
@@ -138,7 +136,7 @@ def compute_stock_attention(panel, guba_posts):
 
         # Compute recency: % of posts from last 3 days
         timestamps = data.get('latest_timestamps', [])
-        recent = sum(1 for t in timestamps if t >= '2026-05-07')  # last 3 days
+        recent = sum(1 for t in timestamps if t >= cutoff)
         recency = recent / n_posts if n_posts > 0 else 0
 
         # Attention score = post volume normalized * recency
