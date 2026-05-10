@@ -187,8 +187,14 @@ def main():
         ai_state['AIStateScore'].min(), ai_state['AIStateScore'].max()))
 
     try:
-        mismatch = template_cluster.compute_template_affinity(panel, recent_only=True)
-    except Exception:
+        mismatch = template_cluster.compute_template_affinity(
+            panel,
+            recent_only=False,
+            recent_days=20,
+        )
+        print(' Template clustering: KMeans full-history version used')
+    except Exception as e:
+        print(f' Template clustering failed; fallback to proxy: {type(e).__name__}: {e}')
         mismatch = template_cluster.compute_template_affinity_proxy(panel)
     print('  MismatchScore range: [{:.3f}, {:.3f}]'.format(
         mismatch['MismatchScore'].min(), mismatch['MismatchScore'].max()))

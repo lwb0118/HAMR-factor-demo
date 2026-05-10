@@ -120,11 +120,10 @@ def compute_trap_guard(quality_score, liquidity_capacity, panel=None):
 
     merged['TrapGuard'] = (q_filter * l_filter).clip(0, 1)
 
-    # Forecast penalty: severe negative forecast → lower TrapGuard
+    # Forecast penalty
     if panel is not None and 'forecast_neg' in panel.columns:
-        fc = panel[['date', 'code', 'forecast_neg']].dropna()
+        fc = panel[['date', 'code', 'forecast_neg']].drop_duplicates(['date', 'code'])
         merged = merged.merge(fc, on=['date', 'code'], how='left')
-        # Severe forecast warning → 40% reduction
         penalty = merged['forecast_neg'].fillna(0) * 0.4
         merged['TrapGuard'] = (merged['TrapGuard'] * (1 - penalty)).clip(0, 1)
 

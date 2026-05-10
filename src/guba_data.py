@@ -116,31 +116,38 @@ def fetch_universe_posts(codes, max_per_stock=80, max_workers=4):
     return results
 
 
-def compute_stock_attention(panel, guba_posts, trade_date=None):
-    """
-    Compute StockAttention score per stock per date.
-
-    Args:
-        trade_date: reference date (default: today). Used to compute recency.
-
-    Returns DataFrame with [code, stock_attention_raw, guba_posts].
-    """
+def compute_stock_attention(panel, guba_posts, trade_date=None, window_days=3):
     from datetime import datetime, timedelta
+    import pandas as pd
+
+    rows = []
+
+    if not guba_posts:
+        return None
+
     if trade_date is None:
         trade_date = datetime.now().strftime('%Y-%m-%d')
-    cutoff = (datetime.strptime(trade_date, '%Y-%m-%d') - timedelta(days=window_days)).strftime('%Y-%m-%d')
-    rows = []
+
+    try:
+        ref_dt = datetime.strptime(str(trade_date)[:10], '%Y-%m-%d')
+    except Exception:
+        ref_dt = datetime.now()
+
+    cutoff = (ref_dt - timedelta(days=window_days)).strftime('%Y-%m-%d')
+
     for code, data in guba_posts.items():
-        n_posts = data.get('total_posts', 0)
-        if n_posts == 0:
+        if not isinstance(data, dict):
             continue
 
-        # Compute recency: % of posts from last 3 days
-        timestamps = data.get('latest_timestamps', [])
-        recent = sum(1 for t in timestamps if t >= cutoff)
-        recency = recent / n_posts if n_posts > 0 else 0
+        n_posts = int(data.get('total_posts', 0) or 0)
+        if n_posts <= 0:
+            continue
 
-        # Attention score = post volume normalized * recency
+        timestamps = data.get('latest_timestamps', []) or []
+        valid_ts = [str(t)[:10] for t in timestamps if str(t)[:10]]
+        recent = sum(1 for t in valid_ts if t >= cutoff)
+        recency = recent / n_posts if n_posts > 0 else 0.0
+
         rows.append({
             'code': code,
             'guba_posts': n_posts,
@@ -151,8 +158,7 @@ def compute_stock_attention(panel, guba_posts, trade_date=None):
     if not rows:
         return None
 
-    df = pd.DataFrame(rows)
-    return df
+    return pd.DataFrame(rows)
 
 
 def compute_community_aiheat(guba_posts):

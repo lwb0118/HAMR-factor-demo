@@ -104,13 +104,13 @@ def compute_ai_heat_from_panel(panel, github_data=None, github_ts=None,
     else:
         daily['search_aiheat'] = 0.3  # low baseline
 
-    # --- Combined AIHeat ---
+    # --- Combined AIHeat (weights per doc: 0.30/0.25/0.20/0.10/0.15) ---
     daily['AIHeat_raw'] = (
-        0.25 * daily['github_aiheat'] +
-        0.15 * daily['news_aiheat'] +
-        0.10 * daily['search_aiheat'] +
+        0.30 * daily['github_aiheat'] +
+        0.20 * daily['news_aiheat'] +
+        0.15 * daily['search_aiheat'] +
         0.10 * daily['community_aiheat'] +
-        0.40 * market_proxy
+        0.25 * market_proxy
     )
 
     # AIHeat_MA20

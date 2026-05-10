@@ -329,20 +329,27 @@ All figures: `results/figures/`
 | Financial data (PIT) | ✅ Full | fina_indicator + income + cashflow |
 | Moneyflow / fund data | ✅ Full | Large/super-large order flow |
 | Trading constraints | ✅ Full | ST/IPO/limit/suspend |
-| Industry-neutral MismatchScore | ✅ Full | Per-industry RankPct |
+| Industry-neutral MismatchScore | ✅ Full | Per-industry RankPct (proxy) |
 | GitHub AIHeat (multi-repo) | ✅ Full | QuantDinger + vnpy, 8957★ |
 | News AIHeat (East Money) | ✅ Full | Daily keyword intensity |
-| Guba community | ✅ Full | Stock-level + aggregate activity |
+| Guba community data | ✅ Wired but Proxy | Stock-level only; no daily history |
 | AIHeat rolling rank | ✅ Full | No look-ahead 60d window |
-| Forecast (earnings warnings) | ✅ Full | PIT-aligned, 88 negative flags |
-| NonFundamentalOK event chain | ✅ Full | NI + OCF + forecast penalties |
-| Portfolio backtest + costs | ✅ Full | TopN, turnover, 4 cost levels |
+| Search_AIHeat (CSV) | ✅ Wired but Proxy | CSV import; no live API |
+| Forecast (earnings warnings) | ✅ Full | PIT-aligned, 159 reports |
+| NonFundamentalOK event chain | ✅ Wired but Proxy | NI + OCF + forecast; no NLP/news |
+| Portfolio backtest + costs | ✅ Wired but Proxy | TopN + 4 cost levels; W-FRI only |
 | Fama-MacBeth (4-model) | ✅ Full | OLS + NW t-stat |
 | Placebo/randomization tests | ✅ Full | Shuffle AIHeat/Mismatch/Random |
+| Template KMeans clustering | ✅ Implemented not Default | Code ready; proxy used for quick |
+| PositiveAIFlow (QuantDinger) | ✅ Implemented not Default | CSV loader; no live data |
 | ML repair prediction | ✅ Partial | Walk-forward; needs longer data |
-| Search_AIHeat (CSV) | ✅ Partial | CSV import; no live API |
+| Mechanism tests (attention) | ✅ Partial | Turnover-change proxy |
 | GDELT / Google Trends | ❌ Blocked | GFW — East Money news instead |
 | Baidu/WeChat Index | ❌ Blocked | No public API |
+
+---
+
+**Risk notice**: This project is academic research and code demonstration. It depends on proxy variables and does NOT constitute investment advice. Current results are in-sample; production deployment requires multi-year out-of-sample validation, full transaction cost modeling, and compliance review.
 
 ## 📚 Selected References
 
