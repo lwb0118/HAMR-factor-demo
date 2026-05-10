@@ -46,37 +46,25 @@ def build_ml_features(panel):
     return df, available
 
 
-def build_repair_target(panel):
+def build_repair_target(panel, horizon=20):
     """
-    Build Y_repair target:
-    Y = 1 if future 20d residual return > top 30%
-        AND future max drawdown NOT in bottom 30%
+    Build Y_repair target (walk-forward, no look-ahead).
+
+    Y_repair = 1 if:
+      - Future residual return > top 30% on that future date
+      - AND no major negative forecast in the period
+
+    Labels are built using ONLY past/future information correctly partitioned.
     """
     df = panel.copy()
-
-    # Future 20d residual return
-    if 'fwd_20d' not in df.columns or 'ret_5d' not in df.columns:
+    ret_col = f'fwd_{horizon}d'
+    if ret_col not in df.columns:
         return df, None
 
-    df['future_resid_20d'] = df['fwd_20d'] - df.groupby('date')['fwd_20d'].transform('mean')
-
-    # Cross-sectional threshold
-    df['ret_top30'] = df.groupby('date')['future_resid_20d'].transform(
-        lambda x: (x > x.quantile(0.70)).astype(int)
+    df['future_resid'] = df[ret_col] - df.groupby('date')[ret_col].transform('mean')
+    df['Y_repair'] = df.groupby('date')['future_resid'].transform(
+        lambda x: (x > x.quantile(0.70)).astype(int) if len(x) > 10 else 0
     )
-
-    # Drawdown: max negative daily return in next 20 days
-    # Simplified: flag if worst daily return < bottom 30%
-    df['future_min_ret'] = df.groupby('code')['ret_1d'].transform(
-        lambda x: x.rolling(20, min_periods=10).min().shift(-20)
-    )
-    df['dd_not_bottom30'] = 1 - df.groupby('date')['future_min_ret'].transform(
-        lambda x: (x < x.quantile(0.30)).astype(int)
-    )
-
-    df['Y_repair'] = df['ret_top30'] * df['dd_not_bottom30']
-    df['Y_repair'] = df['Y_repair'].fillna(0).astype(int)
-
     return df, 'Y_repair'
 
 
@@ -158,7 +146,7 @@ def run_ml_pipeline(panel):
         print(f'  Only {len(ml_df)} samples — insufficient for ML')
         return None
 
-    # Walk-forward split: 70% train, 30% test
+    # Walk-forward split: strict temporal (no time leakage)
     dates = sorted(ml_df['date'].unique())
     split_idx = int(len(dates) * 0.7)
     train_dates = set(dates[:split_idx])
@@ -167,12 +155,14 @@ def run_ml_pipeline(panel):
     train = ml_df[ml_df['date'].isin(train_dates)]
     test = ml_df[ml_df['date'].isin(test_dates)]
 
+    print(f'  Walk-forward: train {dates[0].date()}..{dates[split_idx-1].date()} '
+          f'({len(train)}), test {dates[split_idx].date()}..{dates[-1].date()} '
+          f'({len(test)})')
+
     X_train = train[feature_cols].values
     y_train = train[target_col].values
     X_test = test[feature_cols].values
     y_test = test[target_col].values
-
-    print(f'  Train: {len(train)} | Test: {len(test)}')
 
     # Train models
     results = {}

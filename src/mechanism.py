@@ -147,4 +147,46 @@ def generate_mechanism_report(panel):
     from .backtest import conditional_ic_by_aistate
     report['aistate_conditional'] = conditional_ic_by_aistate(panel)
 
+    # 4. Exclusion test: remove negative forecast stocks
+    if 'forecast_neg' in panel.columns:
+        clean = panel[panel['forecast_neg'].fillna(0) == 0]
+        if len(clean) > 100:
+            from .backtest import conditional_ic_by_aistate
+            report['exclusion_test'] = conditional_ic_by_aistate(clean)
+
     return report
+
+
+def run_double_sort(panel, horizon=10):
+    """
+    Double sort: Quality × Mismatch/ResidualWeakness.
+    Verify only 'high quality + high mismatch + residual weakness' works.
+    """
+    ret_col = f'fwd_{horizon}d'
+    valid = panel[['date', 'code', 'QualityScore', 'MismatchScore',
+                   'ResidualWeakness', ret_col]].dropna()
+    if len(valid) < 50:
+        return {}
+
+    results = {}
+    for q_var in ['QualityScore']:
+        for m_var in ['MismatchScore', 'ResidualWeakness']:
+            try:
+                valid['q_high'] = valid.groupby('date')[q_var].transform(
+                    lambda x: (x > x.median()).astype(int))
+                valid['m_high'] = valid.groupby('date')[m_var].transform(
+                    lambda x: (x > x.median()).astype(int))
+
+                label = f'{q_var[:2]}+{m_var[:2]}'
+                for q in [0, 1]:
+                    for m in [0, 1]:
+                        sub = valid[(valid['q_high'] == q) & (valid['m_high'] == m)]
+                        if len(sub) < 50:
+                            continue
+                        key = f'{label}_Q{q}_M{m}'
+                        ret = sub.groupby('date')[ret_col].mean().mean()
+                        n = len(sub)
+                        results[key] = {'return': float(ret), 'n': n}
+            except Exception:
+                pass
+    return results
