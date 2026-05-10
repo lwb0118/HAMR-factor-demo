@@ -128,7 +128,8 @@ def compute_stock_attention(panel, guba_posts, trade_date=None):
     from datetime import datetime, timedelta
     if trade_date is None:
         trade_date = datetime.now().strftime('%Y-%m-%d')
-    cutoff = (datetime.strptime(trade_date, '%Y-%m-%d') - timedelta(days=3)).strftime('%Y-%m-%d')
+    cutoff = (datetime.strptime(trade_date, '%Y-%m-%d') - timedelta(days=window_days)).strftime('%Y-%m-%d')
+    rows = []
     for code, data in guba_posts.items():
         n_posts = data.get('total_posts', 0)
         if n_posts == 0:
