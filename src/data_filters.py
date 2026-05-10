@@ -11,6 +11,7 @@ Per HAMR Data Source Guide section 8.1:
 
 import numpy as np
 import pandas as pd
+from pathlib import Path
 from datetime import datetime, timedelta
 import time
 
@@ -168,7 +169,27 @@ def filter_panel(panel, stock_info, suspended_set=None, limit_data=None):
     n_total = len(df)
     print(f'    Tradable: {n_tradable}/{n_total} ({n_tradable/n_total:.1%})')
 
+    # --- Generate data_audit.csv ---
+    _generate_audit_report(df, ROOT / 'results' / 'tables')
+
     return df
+
+
+def _generate_audit_report(panel, output_dir):
+    """Generate per-date data quality audit."""
+    import os
+    output_dir = Path(output_dir) if not isinstance(output_dir, Path) else output_dir
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    daily = panel.groupby('date').agg(
+        n_stocks=('code', 'nunique'),
+        n_tradable=('tradable', 'sum'),
+        n_limit_hit=('is_limit_hit', 'sum') if 'is_limit_hit' in panel.columns else ('tradable', lambda x: (x == 0).sum()),
+    ).reset_index()
+
+    daily['pct_tradable'] = (daily['n_tradable'] / daily['n_stocks'] * 100).round(1)
+    daily.to_csv(output_dir / 'data_audit.csv', index=False)
+    print(f'    data_audit: {output_dir / "data_audit.csv"} ({len(daily)} dates)')
 
 
 def add_industry_to_panel(panel, stock_info):
