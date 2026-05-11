@@ -67,7 +67,7 @@ def compute_hamr(panel, ai_state, mismatch, quality, mispricing, vacuum,
     df['AIStateScore'] = df['AIStateScore'].fillna(0.5).clip(0, 1)
 
     # ================================================================
-    # Core HAMR Formula
+    # Core HAMR Formula — per HAMR document specification
     # ================================================================
 
     # HAMR_Core: quality + mispricing + vacuum

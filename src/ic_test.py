@@ -23,10 +23,15 @@ def compute_daily_rank_ic(panel, factor_col, return_col, min_stocks=10):
         n = len(valid)
         if n < min_stocks:
             continue
-        f_ranks = stats.rankdata(valid[factor_col].values)
+        # Skip if factor has zero variance
+        f_vals = valid[factor_col].values
+        if np.std(f_vals) == 0:
+            continue
+        f_ranks = stats.rankdata(f_vals)
         r_ranks = stats.rankdata(valid[return_col].values)
         ic, p_val = stats.pearsonr(f_ranks, r_ranks)
-        results.append({'date': date, 'ic': ic, 'p_value': p_val, 'n_stocks': n})
+        if np.isfinite(ic):
+            results.append({'date': date, 'ic': ic, 'p_value': p_val, 'n_stocks': n})
 
     if not results:
         raise ValueError('No valid IC dates.')
@@ -35,7 +40,12 @@ def compute_daily_rank_ic(panel, factor_col, return_col, min_stocks=10):
 
 def compute_ic_statistics(ic_series):
     """Compute IC statistics with Newey-West adjustment."""
+    ic_series = ic_series[np.isfinite(ic_series)]  # drop NaN
     n = len(ic_series)
+    if n == 0:
+        return {'ic_mean': 0.0, 'ic_std': 0.0, 'icir': 0.0, 't_stat': 0.0,
+                'p_value': 1.0, 'ic_pos_ratio': 0.0, 'n_periods': 0,
+                'nw_tstat': 0.0, 'cumulative_ic': 0.0}
     ic_mean = float(np.mean(ic_series))
     ic_std = float(np.std(ic_series, ddof=1))
     icir = ic_mean / ic_std if ic_std > 0 else 0.0

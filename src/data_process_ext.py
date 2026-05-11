@@ -122,6 +122,8 @@ def merge_financials_to_panel(panel, financials):
         return panel
 
     fin_panel = pd.concat(merged_rows, ignore_index=True)
+    if isinstance(fin_panel.columns, pd.MultiIndex):
+        fin_panel.columns = ['_'.join(str(c) for c in col).strip('_') for col in fin_panel.columns]
 
     # Select key columns
     fin_cols = ['code', 'date', 'roe', 'roa', 'current_ratio',
@@ -248,6 +250,8 @@ def merge_express_to_panel(panel, express_df):
         return panel
 
     exp_panel = pd.concat(merged_rows, ignore_index=True)
+    if isinstance(exp_panel.columns, pd.MultiIndex):
+        exp_panel.columns = ['_'.join(str(c) for c in col).strip('_') for col in exp_panel.columns]
     keep = ['code', 'date', 'n_income']
     available = [c for c in keep if c in exp_panel.columns]
     return panel.merge(exp_panel[available], on=['code', 'date'], how='left')
@@ -281,6 +285,8 @@ def merge_income_to_panel(panel, income_df):
         return panel
 
     inc_panel = pd.concat(merged_rows, ignore_index=True)
+    if isinstance(inc_panel.columns, pd.MultiIndex):
+        inc_panel.columns = ['_'.join(str(c) for c in col).strip('_') for col in inc_panel.columns]
     keep = ['code', 'date', 'n_income', 'oper_cf', 'revenue', 'operate_profit']
     available = [c for c in keep if c in inc_panel.columns]
     return panel.merge(inc_panel[available], on=['code', 'date'], how='left')
@@ -350,6 +356,8 @@ def merge_forecast_to_panel(panel, forecast_df):
         return panel
 
     fc_panel = pd.concat(merged_rows, ignore_index=True)
+    if isinstance(fc_panel.columns, pd.MultiIndex):
+        fc_panel.columns = ['_'.join(str(c) for c in col).strip('_') for col in fc_panel.columns]
     keep = ['code', 'date', 'forecast_neg', 'p_change_min', 'type']
     available = [c for c in keep if c in fc_panel.columns]
     return panel.merge(fc_panel[available], on=['code', 'date'], how='left')

@@ -225,7 +225,7 @@ def _code_to_ts(code):
     return code + suffix
 
 
-def _fetch_tushare_prices(codes, token, days=200):
+def _fetch_tushare_prices(codes, token, days=400):
     """Fetch daily price + daily_basic via Tushare."""
     import tushare as ts
 

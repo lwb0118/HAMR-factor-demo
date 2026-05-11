@@ -117,15 +117,17 @@ def compute_ai_heat_from_panel(panel, github_data=None, github_ts=None,
     # AIHeat_MA20
     daily['AIHeat_MA20'] = daily['AIHeat_raw'].rolling(20, min_periods=5).mean()
 
-    # AIHeat_Z (rolling z-score, 252 window)
-    ma_series = daily['AIHeat_MA20'].values
-    n = len(ma_series)
+    # AIHeat_Z (rolling z-score on raw AIHeat, not MA — preserves variation)
+    raw_series = daily['AIHeat_raw'].values
+    n = len(raw_series)
     daily['AIHeat_Z'] = 0.0
     for i in range(n):
-        start = max(0, i - 252)
-        win = ma_series[start:i+1]
-        if len(win) >= 10 and win.std() > 0:
-            daily.loc[i, 'AIHeat_Z'] = (win[-1] - win.mean()) / win.std()
+        lookback = min(252, max(20, i))
+        start = max(0, i - lookback)
+        win = raw_series[start:i+1]
+        if win.std() > 0:
+            zi = (win[-1] - win.mean()) / win.std()
+            daily.iloc[i, daily.columns.get_loc('AIHeat_Z')] = zi
 
     # AIHeat_Change
     daily['AIHeat_Change'] = daily['AIHeat_Z'] - daily['AIHeat_Z'].shift(20)
@@ -259,10 +261,8 @@ def load_search_aiheat(csv_path=None):
         return None
 
     df = pd.read_csv(csv_path, parse_dates=['date'])
-    df = df.pivot_table(index='date', columns=['source', 'keyword'],
-                         values='value', aggfunc='mean')
-    # Average across sources and keywords
-    df['search_score'] = df.mean(axis=1)
-    df['search_score'] = (df['search_score'] - df['search_score'].mean()) / \
-                          (df['search_score'].std() + 1e-10)
-    return df.reset_index()[['date', 'search_score']]
+    avg_df = df.groupby('date')['value'].mean().reset_index()
+    avg_df.columns = ['date', 'search_score_raw']
+    avg_df['search_score'] = (avg_df['search_score_raw'] - avg_df['search_score_raw'].mean()) / \
+                              (avg_df['search_score_raw'].std() + 1e-10)
+    return avg_df[['date', 'search_score']].copy()

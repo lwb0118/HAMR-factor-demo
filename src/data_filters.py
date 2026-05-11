@@ -12,6 +12,7 @@ Per HAMR Data Source Guide section 8.1:
 import numpy as np
 import pandas as pd
 from pathlib import Path
+ROOT = Path(__file__).parent.parent
 from datetime import datetime, timedelta
 import time
 

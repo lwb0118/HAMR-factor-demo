@@ -79,7 +79,7 @@ def fetch_universe_posts(codes, max_per_stock=80, max_workers=4):
 
     # Use cache if recent (< 1 hour)
     if cache_file.exists():
-        cached = json.loads(cache_file.read_text())
+        cached = json.loads(cache_file.read_text(encoding='utf-8'))
         if time.time() - cached.get('fetched_at', 0) < 3600:
             print(f'    Loaded {len(cached.get("posts",{}))} stocks from cache')
             return cached.get('posts', {})

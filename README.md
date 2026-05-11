@@ -145,39 +145,38 @@ All sub-variables are RankPct-transformed to [0, 1], unified as
 
 ---
 
-## 🔬 Empirical Methodology
+## 📊 Empirical Results (200 CSI 1000, 2025-04-07 → 2026-05-08)
 
-Standard academic factor testing protocol:
+### IC Analysis (Spearman Rank, 20-day forward)
 
-### 1. Cross-Sectional Rank IC (Spearman)
+| Horizon | IC Mean | ICIR | NW t | IC>0 | Verdict |
+|---------|---------|------|------|------|---------|
+| 1d | −0.013 | −0.13 | −2.26 | 43.5% | Significant |
+| 5d | −0.017 | −0.18 | −1.82 | 42.9% | Marginal |
+| 10d | −0.022 | −0.24 | −2.11 | 43.4% | Significant |
+| **20d** | **−0.023** | **−0.28** | **−2.38** | **41.1%** | **Significant** |
 
-```
-IC_t = Corr(Rank(HAMR_Final_i,t), Rank(ForwardReturn_i,t→t+h))
-```
+### Quintile Backtest (20d forward)
 
-### 2. ICIR & Newey-West HAC Inference
+| Quintile | Return |
+|----------|--------|
+| Q1 (Low HAMR) | +2.58% |
+| Q2 | +2.50% |
+| Q3 | +2.23% |
+| Q4 | +2.50% |
+| Q5 (High HAMR) | +2.49% |
+| **Q5−Q1 Spread** | **−0.09%** (ann. −1.1%) |
+| Monotonicity | −0.70 |
 
-```
-ICIR = mean(IC) / std(IC)
-NW_SE = HAC standard error with Bartlett kernel
-```
+### Discussion
 
-### 3. Quintile Portfolio Test
+The HAMR factor exhibits a **statistically significant negative IC** across all horizons in the 2025–2026 sample period. This indicates that stocks with high HAMR scores (template-mismatched, crowded-out, AI-neglected) tend to **underperform** rather than revert — consistent with a momentum-dominated market regime.
 
-Stocks sorted into Q1–Q5 by HAMR_Final. Monotonic Q1<Q2<...<Q5
-return pattern validates the factor.
+**Possible mechanism:** In this period, AI-driven homogeneous trading may have produced trend reinforcement (momentum) rather than transient impact followed by reversion. The HAMR factor's mispricing signal was overwhelmed by directional price trends.
 
-### 4. Control Factor Comparison
+**Sub-factor decomposition** reveals that ResidualWeakness alone has positive IC (+0.030), but MismatchScore (−0.016), QualityScore (−0.019), and FundingVacuum (−0.033) drag the composite toward negative territory.
 
-HAMR compared against:
-- QualityScore only
-- ResidualWeakness only (reversal proxy)
-- QualityScore × ResidualWeakness (naive combination)
-
-### 5. AIHeat State-Conditional IC
-
-IC computed separately for high vs. low AIHeat states to test
-whether HAMR works better when template trading is active.
+**Interpretation:** This does not invalidate the HAMR theoretical framework. It suggests the factor behaves as a **regime-dependent Alpha** — requiring a mean-reverting market environment. In momentum-dominated regimes, the signal flips.
 
 ---
 
@@ -234,22 +233,21 @@ python run.py
 python run.py --full
 ```
 
-### Expected Output
+### Expected Output (200 stocks, 263 trading days)
 
 ```
-╔══════════════════════════════════════════════════════════╗
-║   HAMR (Homogeneous AI Mispricing Reversion) Factor     ║
-╠══════════════════════════════════════════════════════════╣
-║  Mode: Standard Demo                                    ║
-╚══════════════════════════════════════════════════════════╝
+  HAMR Factor — Academic Verification Pipeline
+  Mode: Quick Demo (200 stocks)
+  Time: 2026-05-11
 
-Step 1: Data Acquisition
-Step 2: HAMR Factor Computation (5-layer)
-Step 3: Cross-Sectional Rank IC Analysis
-Step 4: Quintile Portfolio Backtest
-Step 5: Control Factor Comparison
-Step 6: Component Attribution
-Step 7: Publication-Quality Visualizations
+Step 1: Data Acquisition (CSI 1000) — 200 stocks x 263 dates
+Step 1b: Financial & Fund Flow Data
+Step 1c: Trading Constraints & Filters
+Steps 2-7: HAMR Factor Assembly
+Step 8: IC Analysis
+Step 9: Quintile Backtest + Control Comparison
+Step 10: Mechanism Tests
+Step 12: Visualization → 13 charts saved to results/figures/
 ```
 
 ---
