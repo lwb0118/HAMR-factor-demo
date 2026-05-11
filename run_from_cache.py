@@ -121,6 +121,40 @@ def main():
     )
     panel = hamr_factor.compute_forward_returns(panel)
 
+    # Add diagnostic HAMR variants
+    panel = hamr_factor.add_hamr_diagnostic_variants(panel)
+
+    # AIHeat component verification
+    print('\n  AIHeat component summary:')
+    for c in [
+        'github_aiheat',
+        'search_aiheat',
+        'news_aiheat',
+        'community_aiheat',
+        'market_proxy',
+        'AIHeat_raw',
+        'AIStateScore',
+    ]:
+        if c in ai_state.columns:
+            print(
+                f'    {c:>18s}: '
+                f'mean={ai_state[c].mean():.3f}, '
+                f'std={ai_state[c].std():.3f}, '
+                f'min={ai_state[c].min():.3f}, '
+                f'max={ai_state[c].max():.3f}'
+            )
+
+    # Template clustering verification
+    print(
+        '  TemplateAffinity default ratio:',
+        (mismatch["TemplateAffinity"].round(6) == 0.5).mean()
+    )
+    if "n_templates" in mismatch.columns:
+        print(
+            '  Average number of templates:',
+            mismatch["n_templates"].mean()
+        )
+
     # Step 8: IC Analysis
     sep('Step 8: IC Analysis')
     from src.ic_test import full_ic_analysis
@@ -183,6 +217,54 @@ def main():
                       f't={s["t_stat"]:+.3f}, {s["n_dates"]}d')
     except Exception as e:
         print(f'\n  Reversal double-sort: skipped ({type(e).__name__})')
+
+    # Step 10b: HAMR Diagnostic Variant Test
+    sep('Step 10b: HAMR Diagnostic Variant Test')
+
+    diagnostic_factors = [
+        'hamr_zscore',
+        'HAMR_Core_Raw_rank',
+        'HAMR_NoAI_rank',
+        'HAMR_Diag_Final_rank',
+        'HAMR_Entry_rank',
+        'HAMR_ReverseCheck_rank',
+    ]
+
+    for fac in diagnostic_factors:
+        if fac not in panel.columns:
+            continue
+
+        print(f'\n  Testing factor: {fac}')
+
+        try:
+            ic_tmp = full_ic_analysis(
+                panel,
+                factor_col=fac,
+                horizons=(5, 10, 20)
+            )
+
+            for h, d in sorted(ic_tmp.items()):
+                s = d['stats']
+                print(
+                    f'    {h}d | IC={s["ic_mean"]:+.4f} | '
+                    f'ICIR={s["icir"]:+.3f} | '
+                    f'NW t={s["nw_tstat"]:+.3f} | '
+                    f'IC>0={s["ic_pos_ratio"]:.1%}'
+                )
+
+            grp_tmp = backtest.quintile_test(
+                panel,
+                factor_col=fac,
+                return_col='fwd_20d'
+            )
+
+            print(
+                f'    Q5-Q1={grp_tmp["spread"]:+.4%} | '
+                f'Monotonicity={grp_tmp["monotonicity"]:+.3f}'
+            )
+
+        except Exception as e:
+            print(f'    skipped: {type(e).__name__}: {e}')
 
     # Step 12: Charts
     sep('Step 12: Visualization')

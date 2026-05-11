@@ -145,38 +145,37 @@ All sub-variables are RankPct-transformed to [0, 1], unified as
 
 ---
 
-## 📊 Empirical Results (200 CSI 1000, 2025-04-07 → 2026-05-08)
+## 📊 Empirical Results
 
-### IC Analysis (Spearman Rank, 20-day forward)
+Current version implements the complete HAMR research framework: full-history
+rolling template clustering, multi-source AIHeat state variable, mispricing
+pressure, funding vacuum, value trap filtering, IC testing, quintile backtest,
+and diagnostic variant comparison.
 
-| Horizon | IC Mean | ICIR | NW t | IC>0 | Verdict |
-|---------|---------|------|------|------|---------|
-| 1d | −0.013 | −0.13 | −2.26 | 43.5% | Significant |
-| 5d | −0.017 | −0.18 | −1.82 | 42.9% | Marginal |
-| 10d | −0.022 | −0.24 | −2.11 | 43.4% | Significant |
-| **20d** | **−0.023** | **−0.28** | **−2.38** | **41.1%** | **Significant** |
+Results should be evaluated against the latest backtest. If HAMR_Final does not
+pass Q5–Q1 spread, Rank IC, monotonicity, and control factor comparison checks,
+it should not be claimed as a stable positive Alpha — it should be described as
+a research prototype or mechanism-exploration factor.
 
-### Quintile Backtest (20d forward)
+### Diagnostic Framework
 
-| Quintile | Return |
-|----------|--------|
-| Q1 (Low HAMR) | +2.58% |
-| Q2 | +2.50% |
-| Q3 | +2.23% |
-| Q4 | +2.50% |
-| Q5 (High HAMR) | +2.49% |
-| **Q5−Q1 Spread** | **−0.09%** (ann. −1.1%) |
-| Monotonicity | −0.70 |
+The diagnostic variant test (Step 10b) evaluates these hypotheses:
 
-### Discussion
+| Variant | What it tests |
+|---------|---------------|
+| `hamr_zscore` | Baseline HAMR (document formula) |
+| `HAMR_Core_Raw` | Core signal without AIHeat or filters |
+| `HAMR_NoAI` | Stock-level signal with liquidity/trap filters only |
+| `HAMR_Diag_Final` | Full reconstruction with AIHeat gating |
+| `HAMR_Entry` | Entry-confirmed version (requires rebound) |
+| `HAMR_ReverseCheck` | Inverse — if this wins, HAMR is a risk signal |
 
-The HAMR factor exhibits a **statistically significant negative IC** across all horizons in the 2025–2026 sample period. This indicates that stocks with high HAMR scores (template-mismatched, crowded-out, AI-neglected) tend to **underperform** rather than revert — consistent with a momentum-dominated market regime.
-
-**Possible mechanism:** In this period, AI-driven homogeneous trading may have produced trend reinforcement (momentum) rather than transient impact followed by reversion. The HAMR factor's mispricing signal was overwhelmed by directional price trends.
-
-**Sub-factor decomposition** reveals that ResidualWeakness alone has positive IC (+0.030), but MismatchScore (−0.016), QualityScore (−0.019), and FundingVacuum (−0.033) drag the composite toward negative territory.
-
-**Interpretation:** This does not invalidate the HAMR theoretical framework. It suggests the factor behaves as a **regime-dependent Alpha** — requiring a mean-reverting market environment. In momentum-dominated regimes, the signal flips.
+Interpretation:
+- If HAMR_Core_Raw works but hamr_zscore doesn't → AIHeat or filters are dragging
+- If HAMR_NoAI works but HAMR_Diag_Final doesn't → AIHeat gating is problematic
+- If HAMR_Entry works → HAMR needs rebound confirmation, can't buy into falling knives
+- If HAMR_ReverseCheck works → current HAMR behaves more like a risk factor
+- If none work → current sample/implementation doesn't support HAMR as positive Alpha
 
 ---
 
