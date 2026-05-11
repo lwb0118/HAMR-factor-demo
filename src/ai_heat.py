@@ -79,8 +79,8 @@ def compute_ai_heat_from_panel(
         ("top20_volume_share", "concentration_z"),
     ]:
         daily[name] = daily[col].rolling(60, min_periods=10).apply(
-            lambda x: (x.iloc[-1] - x.mean()) / x.std()
-            if x.std() > 0 else 0,
+            lambda x: (x.iloc[-1] - x.iloc[:-1].mean()) / x.iloc[:-1].std()
+            if len(x) > 1 and x.iloc[:-1].std() > 0 else 0,
             raw=False,
         )
 

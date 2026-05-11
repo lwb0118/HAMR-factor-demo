@@ -33,10 +33,11 @@ def compute_funding_vacuum(panel, stock_attention_df=None, positive_ai_flow_df=N
     """
     df = panel.copy()
 
-    # === Crowding Score ===
+    # === Crowding Score (abnormal turnover/amount, intraday vol) ===
     crowd_parts = []
 
     if 'main_net' in df.columns and df['main_net'].notna().sum() > 50:
+        # main_net is institutional net inflow — higher = more crowded
         crowd_parts.append(cross_rankpct(df, 'main_net').fillna(0.5))
 
     if 'ab_turnover' in df.columns and df['ab_turnover'].notna().sum() > 50:
@@ -50,7 +51,8 @@ def compute_funding_vacuum(panel, stock_attention_df=None, positive_ai_flow_df=N
     if 'intraday_vol' in df.columns and df['intraday_vol'].notna().sum() > 50:
         crowd_parts.append(cross_rankpct(df, 'intraday_vol').fillna(0.5))
 
-    crowd_parts.append(cross_rankpct(df, 'ret_5d').fillna(0.5))
+    # ret_5d intentionally EXCLUDED from crowding — it is momentum, not crowding
+    # A stock can have high returns without high crowd participation
 
     if crowd_parts:
         df['CrowdingScore'] = sum(p for p in crowd_parts) / len(crowd_parts)

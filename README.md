@@ -188,14 +188,29 @@ hamr-factor-demo/
 ├── README.md                       # This file
 ├── src/
 │   ├── __init__.py                 # Package init
-│   ├── data_fetcher.py             # Data acquisition (akshare API)
-│   ├── factor_calculator.py        # 5-layer HAMR factor computation
+│   ├── data_process.py             # Unified data layer (Tushare + akshare)
+│   ├── data_process_ext.py         # Financial/moneyflow/forecast data
+│   ├── data_filters.py             # Stock universe filters (ST/IPO/limit)
+│   ├── template_cluster.py         # KMeans-based hot template identification
+│   ├── quality.py                  # QualityScore (fundamental + proxy)
+│   ├── residual.py                 # ResidualWeakness + NonFundamentalOK
+│   ├── funding_vacuum.py           # FundingVacuum + CrowdingScore
+│   ├── ai_heat.py                  # AIStateScore (market condition)
+│   ├── github_timeseries.py        # GitHub activity time series
+│   ├── news_aiheat.py              # Financial news AI intensity
+│   ├── guba_data.py                # Stock forum community data
+│   ├── hamr_factor.py              # 5-layer HAMR factor assembly
 │   ├── ic_test.py                  # IC/ICIR/Newey-West testing suite
 │   ├── backtest.py                 # Quintile + control comparison
+│   ├── regression.py               # Fama-MacBeth regression
+│   ├── mechanism.py                # Mechanism tests (attention proxy)
+│   ├── ml_model.py                 # ML repair prediction
+│   ├── portfolio_backtest.py       # Portfolio-level backtest
+│   ├── quantdinger_flow.py         # QuantDinger AI flow data
 │   └── visualization.py            # Publication-quality charts
 ├── data/                           # Cached data (auto-populated)
 ├── results/
-│   └── charts/                     # Generated figures
+│   └── figures/                    # Generated figures
 ├── docs/
 │   ├── methodology.md              # Detailed methodology
 │   └── factor_definition.md        # Full variable specifications
@@ -319,7 +334,7 @@ All figures: `results/figures/`
 | Component | Status | Notes |
 |-----------|--------|-------|
 | HAMR_Final (5-layer formula) | ✅ Full | Multiplicative, RankPct [0,1] |
-| IC + ICIR + Newey-West | ✅ Full | 4 horizons, Bartlett kernel |
+| IC + ICIR + Newey-West | ✅ Full | 6 horizons (1d-120d), Bartlett kernel |
 | Per-date quintile test | ✅ Full | Cross-sectional grouping |
 | Control factor comparison | ✅ Full | Quality/Reversal/Q×R |
 | Tushare daily + daily_basic | ✅ Full | OHLCV + turnover + market cap |
