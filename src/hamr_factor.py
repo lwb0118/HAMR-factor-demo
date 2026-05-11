@@ -98,6 +98,104 @@ def compute_hamr(panel, ai_state, mismatch, quality, mispricing, vacuum,
     return df
 
 
+def add_hamr_diagnostic_variants(panel):
+    """
+    Add diagnostic HAMR variants for alpha validation.
+
+    Purpose:
+    1. Check whether HAMR_Core itself works.
+    2. Check whether AIHeat gating hurts performance.
+    3. Check whether HAMR needs entry confirmation.
+    4. Check whether current HAMR is actually a reverse/risk signal.
+    """
+    df = panel.copy()
+
+    required = [
+        "QualityScore",
+        "MismatchScore",
+        "ResidualWeakness",
+        "NonFundamentalOK",
+        "FundingVacuum",
+        "LiquidityCapacity",
+        "TrapGuard",
+        "AIStateScore",
+    ]
+
+    for c in required:
+        if c not in df.columns:
+            df[c] = 0.5
+
+    # Core mispricing pressure
+    df["HAMR_Diag_MispricingPressure"] = (
+        df["MismatchScore"].fillna(0.5)
+        * df["ResidualWeakness"].fillna(0.5)
+        * df["NonFundamentalOK"].fillna(0.5)
+    )
+
+    # Core version without AIHeat, liquidity and trap filters
+    df["HAMR_Core_Raw"] = (
+        df["QualityScore"].fillna(0.5)
+        * df["HAMR_Diag_MispricingPressure"].fillna(0.5)
+        * df["FundingVacuum"].fillna(0.5)
+    )
+
+    # No-AI version: stock-level signal only, with liquidity and trap filters
+    df["HAMR_NoAI"] = (
+        df["HAMR_Core_Raw"].fillna(0.5)
+        * df["LiquidityCapacity"].fillna(0.5)
+        * df["TrapGuard"].fillna(0.5)
+    )
+
+    # Reconstructed final diagnostic version
+    df["HAMR_Diag_Final"] = (
+        df["AIStateScore"].fillna(0.5)
+        * df["HAMR_Core_Raw"].fillna(0.5)
+        * df["LiquidityCapacity"].fillna(0.5)
+        * df["TrapGuard"].fillna(0.5)
+    )
+
+    # Entry confirmation: avoid catching falling knives
+    if "ret_1d" in df.columns:
+        df["ReboundConfirm"] = (
+            df.groupby("date")["ret_1d"]
+            .rank(pct=True)
+            .fillna(0.5)
+        )
+    else:
+        df["ReboundConfirm"] = 0.5
+
+    df["HAMR_Entry"] = (
+        df["HAMR_Core_Raw"].fillna(0.5)
+        * df["ReboundConfirm"].fillna(0.5)
+        * df["LiquidityCapacity"].fillna(0.5)
+        * df["TrapGuard"].fillna(0.5)
+    )
+
+    # Reverse check: if this works better, current HAMR is more like a risk signal
+    df["HAMR_ReverseCheck"] = 1.0 - (
+        df.groupby("date")["HAMR_Diag_Final"]
+        .rank(pct=True)
+        .fillna(0.5)
+    )
+
+    factor_cols = [
+        "HAMR_Core_Raw",
+        "HAMR_NoAI",
+        "HAMR_Diag_Final",
+        "HAMR_Entry",
+        "HAMR_ReverseCheck",
+    ]
+
+    for col in factor_cols:
+        df[col + "_rank"] = (
+            df.groupby("date")[col]
+            .rank(pct=True)
+            .fillna(0.5)
+        )
+
+    return df
+
+
 def compute_forward_returns(panel, horizons=(1, 5, 10, 20)):
     """Compute forward returns. fwd_{h}d = close(t+h)/close(t) - 1."""
     df = panel.copy()
