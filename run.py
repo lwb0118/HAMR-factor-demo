@@ -171,7 +171,9 @@ def main():
     news_ts = build_news_timeseries()
     search_ts = load_search_aiheat()
     if search_ts is not None:
-        print(f'    Search AIHeat: {len(search_ts)} data points loaded')
+        print(f'    Search AIHeat loaded: {len(search_ts)} rows')
+    else:
+        print('    Search AIHeat not found; using neutral 0.5')
     if github_ts is not None and len(github_ts) > 10:
         print(f'    {len(github_ts)} daily points, '
               f'{int(github_ts["stars_cum"].max())} cumulative stars')
@@ -185,6 +187,26 @@ def main():
         ai_state = ai_heat.compute_ai_heat_from_panel(panel, github_data=github_data)
     print('  AIStateScore range: [{:.3f}, {:.3f}]'.format(
         ai_state['AIStateScore'].min(), ai_state['AIStateScore'].max()))
+
+    # AIHeat component verification
+    print('\n  AIHeat component summary:')
+    for c in [
+        'github_aiheat',
+        'search_aiheat',
+        'news_aiheat',
+        'community_aiheat',
+        'market_proxy',
+        'AIHeat_raw',
+        'AIStateScore',
+    ]:
+        if c in ai_state.columns:
+            print(
+                f'    {c:>18s}: '
+                f'mean={ai_state[c].mean():.3f}, '
+                f'std={ai_state[c].std():.3f}, '
+                f'min={ai_state[c].min():.3f}, '
+                f'max={ai_state[c].max():.3f}'
+            )
 
     try:
         mismatch = template_cluster.compute_template_affinity(
