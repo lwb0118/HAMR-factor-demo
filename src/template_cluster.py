@@ -4,10 +4,10 @@ template_cluster.py
 TemplateClustering — KMeans-based hot template identification.
 
 Per HAMR Framework v2.0:
-  1. Each trading day t, identify HotSet from past 20 days
-  2. Cluster HotSet via KMeans into 1-3 template centroids
-  3. TemplateAffinity = max_k cosine_similarity(stock_feature, centroid_k)
-  4. MismatchScore = 1 - date/industry RankPct(TemplateAffinity)
+  1. Each trading day t, identify HotSet from past lookback_days using ONLY data up to t.
+  2. Cluster HotSet via KMeans into 1-3 template centroids.
+  3. TemplateAffinity = max_k cosine_similarity(stock_feature, centroid_k).
+  4. MismatchScore = 1 - date/industry RankPct(TemplateAffinity).
 """
 
 import numpy as np
@@ -24,104 +24,141 @@ def compute_template_affinity(
     min_industry_stocks=5,
     recent_only=False,
     recent_days=20,
+    lookback_days=20,
     min_stocks_per_day=20,
 ):
-    """KMeans-based hot-template clustering.
+    """
+    Full-history KMeans hot-template clustering.
 
-    recent_only=True  : quick demo, only recent_days.
-    recent_only=False : full historical academic backtest.
+    For each trading day t:
+    1. Use only information up to t (no look-ahead).
+    2. Build HotSet from past lookback_days.
+    3. Cluster HotSet into 1-3 hot templates.
+    4. Compute TemplateAffinity for all stocks on t.
+    5. MismatchScore = 1 - date/industry RankPct(TemplateAffinity).
     """
     df = panel.copy()
-    dates = sorted(df['date'].unique())
+    df["date"] = pd.to_datetime(df["date"])
 
-    # Feature columns for clustering
-    feat_cols = ['ret_20d', 'turnover_avg_20d', 'volatility_20d']
-    if 'turnover_spike' in df.columns:
-        feat_cols.append('turnover_spike')
-    if 'dollar_volume' in df.columns:
-        feat_cols.append('dollar_volume')
+    dates = sorted(df["date"].unique())
 
-    # Ensure all features exist (fill missing)
+    feat_cols = ["ret_20d", "turnover_avg_20d", "volatility_20d"]
+
+    if "turnover_spike" in df.columns:
+        feat_cols.append("turnover_spike")
+
+    if "dollar_volume" in df.columns:
+        feat_cols.append("dollar_volume")
+
     for c in feat_cols:
         if c not in df.columns:
-            df[c] = 0.5
+            df[c] = 0.0
 
-    df['TemplateAffinity'] = 0.5  # default
-    df['n_templates'] = 0
+    df["TemplateAffinity"] = 0.5
+    df["n_templates"] = 0
 
-    for date in dates[-20:]:  # Only cluster recent dates (computational)
-        mask = df['date'] == date
-        day_data = df.loc[mask].copy()
-        n_stocks = len(day_data)
-        if n_stocks < 20:
+    if recent_only:
+        iter_dates = dates[-recent_days:]
+    else:
+        iter_dates = dates
+
+    date_to_pos = {d: i for i, d in enumerate(dates)}
+
+    for date in iter_dates:
+        pos = date_to_pos[date]
+
+        hist_start = max(0, pos - lookback_days + 1)
+        hist_dates = dates[hist_start:pos + 1]
+
+        hist = df[df["date"].isin(hist_dates)].copy()
+        today_mask = df["date"] == date
+        today = df.loc[today_mask].copy()
+
+        if len(today) < min_stocks_per_day:
             continue
 
-        # ---- Step 1: Identify HotSet (top 20% by composite score) ----
-        day_data['_hot_score'] = (
-            0.4 * day_data['ret_20d'].rank(pct=True).fillna(0.5) +
-            0.3 * day_data['turnover_avg_20d'].rank(pct=True).fillna(0.5) +
-            0.3 * (day_data.get('turnover_spike', day_data['ret_20d']))
-                  .rank(pct=True).fillna(0.5)
+        if len(hist) < min_stocks_per_day * 5:
+            continue
+
+        hist["_hot_score"] = (
+            0.40 * hist["ret_20d"].rank(pct=True).fillna(0.5)
+            + 0.30 * hist["turnover_avg_20d"].rank(pct=True).fillna(0.5)
+            + 0.30 * hist.get("turnover_spike", hist["ret_20d"])
+            .rank(pct=True)
+            .fillna(0.5)
         )
-        hot_n = max(10, int(n_stocks * 0.20))
-        hot_idx = day_data['_hot_score'].nlargest(hot_n).index
 
-        # ---- Step 2: Extract features for HotSet ----
-        features = day_data.loc[hot_idx, feat_cols].fillna(0).values
-        if len(features) < 3:
+        hot_n = max(30, int(len(hist) * 0.20))
+        hot = hist.nlargest(hot_n, "_hot_score").copy()
+
+        if len(hot) < 10:
             continue
 
-        # Standardize
+        hot_features = hot[feat_cols].replace([np.inf, -np.inf], np.nan).fillna(0)
+
         scaler = StandardScaler()
+
         try:
-            features_scaled = scaler.fit_transform(features)
+            hot_scaled = scaler.fit_transform(hot_features.values)
         except Exception:
             continue
 
-        # ---- Step 3: KMeans clustering ----
-        k = min(n_clusters, len(features) // 3)
-        if k < 1:
-            k = 1
+        k = min(n_clusters, max(1, len(hot_scaled) // 20))
+
         try:
-            km = KMeans(n_clusters=k, random_state=42, n_init=5, max_iter=100)
-            km.fit(features_scaled)
+            km = KMeans(
+                n_clusters=k,
+                random_state=42,
+                n_init=10,
+                max_iter=200,
+            )
+            km.fit(hot_scaled)
             centroids = km.cluster_centers_
         except Exception:
             continue
 
-        # ---- Step 4: Cosine similarity for ALL stocks ----
-        all_features = day_data[feat_cols].fillna(0).values
+        today_features = (
+            today[feat_cols]
+            .replace([np.inf, -np.inf], np.nan)
+            .fillna(0)
+        )
+
         try:
-            all_scaled = scaler.transform(all_features)
+            today_scaled = scaler.transform(today_features.values)
+            sim = cosine_similarity(today_scaled, centroids)
+            affinity = sim.max(axis=1)
         except Exception:
             continue
 
-        sim = cosine_similarity(all_scaled, centroids)  # [n_stocks, k]
-        affinity = sim.max(axis=1)  # max across clusters
+        df.loc[today_mask, "TemplateAffinity"] = affinity
+        df.loc[today_mask, "n_templates"] = k
 
-        df.loc[mask, 'TemplateAffinity'] = affinity
-        df.loc[mask, 'n_templates'] = k
+    df["_global_mismatch"] = (
+        1.0
+        - df.groupby("date")["TemplateAffinity"]
+        .transform(lambda x: x.rank(pct=True))
+    )
 
-    # ---- Step 5: MismatchScore (industry-neutral inverse) ----
-    if 'industry' in df.columns:
-        def _industry_rankpct(grp):
-            if len(grp) >= min_industry_stocks:
-                return 1.0 - grp['TemplateAffinity'].rank(pct=True).fillna(0.5)
-            else:
-                return grp['_global_mismatch']
-        df['_global_mismatch'] = 1.0 - df.groupby('date')['TemplateAffinity'].transform(
-            lambda x: x.rank(pct=True))
-        df['MismatchScore'] = df.groupby(['date', 'industry'], group_keys=False).apply(
-            _industry_rankpct)
-        df['MismatchScore'] = df['MismatchScore'].fillna(df['_global_mismatch']).clip(0, 1)
-        df.drop(columns=['_global_mismatch'], inplace=True)
+    if "industry" in df.columns:
+        def _industry_mismatch(g):
+            if len(g) >= min_industry_stocks:
+                return 1.0 - g["TemplateAffinity"].rank(pct=True).fillna(0.5)
+            return g["_global_mismatch"]
+
+        df["MismatchScore"] = (
+            df.groupby(["date", "industry"], group_keys=False)
+            .apply(_industry_mismatch)
+        )
+
+        df["MismatchScore"] = (
+            df["MismatchScore"]
+            .fillna(df["_global_mismatch"])
+            .clip(0, 1)
+        )
     else:
-        df['MismatchScore'] = 1.0 - df.groupby('date')['TemplateAffinity'].transform(
-            lambda x: x.rank(pct=True))
+        df["MismatchScore"] = df["_global_mismatch"].fillna(0.5).clip(0, 1)
 
-    df['MismatchScore'] = df['MismatchScore'].fillna(0.5).clip(0, 1)
-
-    return df[['date', 'code', 'TemplateAffinity', 'MismatchScore']]
+    return df[["date", "code", "TemplateAffinity", "MismatchScore", "n_templates"]]
 
 
 def compute_template_affinity_proxy(panel, min_industry_stocks=5):
