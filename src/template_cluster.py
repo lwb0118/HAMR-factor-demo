@@ -95,11 +95,21 @@ def compute_template_affinity(
             continue
 
         hot_features = hot[feat_cols].replace([np.inf, -np.inf], np.nan).fillna(0)
+        today_features = (
+            today[feat_cols]
+            .replace([np.inf, -np.inf], np.nan)
+            .fillna(0)
+        )
 
+        # Fit scaler on FULL market (all stocks today), not just hot set.
+        # Fix: hot-set-only scaler caused extreme out-of-distribution scaling
+        # for non-hot stocks, corrupting cosine similarity and MismatchScore.
         scaler = StandardScaler()
 
         try:
-            hot_scaled = scaler.fit_transform(hot_features.values)
+            scaler.fit(today_features.values)
+            hot_scaled = scaler.transform(hot_features.values)
+            today_scaled = scaler.transform(today_features.values)
         except Exception:
             continue
 
@@ -117,14 +127,7 @@ def compute_template_affinity(
         except Exception:
             continue
 
-        today_features = (
-            today[feat_cols]
-            .replace([np.inf, -np.inf], np.nan)
-            .fillna(0)
-        )
-
         try:
-            today_scaled = scaler.transform(today_features.values)
             sim = cosine_similarity(today_scaled, centroids)
             affinity = sim.max(axis=1)
         except Exception:
@@ -161,40 +164,3 @@ def compute_template_affinity(
     return df[["date", "code", "TemplateAffinity", "MismatchScore", "n_templates"]]
 
 
-def compute_template_affinity_proxy(panel, min_industry_stocks=5):
-    """
-    Lightweight proxy version (no sklearn dependency).
-    Uses momentum + turnover + volume spike weighted score.
-    Falls back to this when KMeans fails or sklearn unavailable.
-    """
-    df = panel.copy()
-    df['hot_mom'] = cross_rankpct(df, 'ret_20d')
-    df['hot_turnover'] = cross_rankpct(df, 'turnover_avg_20d')
-
-    if 'turnover_spike' in df.columns:
-        df['hot_spike'] = cross_rankpct(df, 'turnover_spike')
-        df['TemplateAffinity'] = (
-            0.4 * df['hot_mom'].fillna(0.5) +
-            0.3 * df['hot_turnover'].fillna(0.5) +
-            0.3 * df['hot_spike'].fillna(0.5)
-        )
-    else:
-        df['TemplateAffinity'] = (
-            0.5 * df['hot_mom'].fillna(0.5) +
-            0.5 * df['hot_turnover'].fillna(0.5)
-        )
-
-    if 'industry' in df.columns:
-        df['_global_mismatch'] = 1.0 - df.groupby('date')['TemplateAffinity'].transform(
-            lambda x: x.rank(pct=True))
-        df['MismatchScore'] = df.groupby(['date', 'industry'], group_keys=False).apply(
-            lambda grp: (1.0 - grp['TemplateAffinity'].rank(pct=True).fillna(0.5))
-            if len(grp) >= min_industry_stocks else grp['_global_mismatch']
-        )
-        df['MismatchScore'] = df['MismatchScore'].fillna(df['_global_mismatch'])
-        df.drop(columns=['_global_mismatch'], inplace=True)
-    else:
-        df['MismatchScore'] = 1.0 - cross_rankpct(df, 'TemplateAffinity')
-
-    df['MismatchScore'] = df['MismatchScore'].fillna(0.5).clip(0, 1)
-    return df[['date', 'code', 'TemplateAffinity', 'MismatchScore']]

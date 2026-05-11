@@ -196,7 +196,7 @@ def add_hamr_diagnostic_variants(panel):
     return df
 
 
-def compute_forward_returns(panel, horizons=(1, 5, 10, 20)):
+def compute_forward_returns(panel, horizons=(1, 5, 10, 20, 60, 120)):
     """Compute forward returns. fwd_{h}d = close(t+h)/close(t) - 1."""
     df = panel.copy()
     df.sort_values(['code', 'date'], inplace=True)

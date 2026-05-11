@@ -311,7 +311,7 @@ def generate_all(panel, ic_results, group_results, comparisons=None,
     print('\n[Charts] Generating...')
 
     # IC charts
-    for h in ['5', '10', '20']:
+    for h in ['5', '10', '20', '60', '120']:
         if h in ic_results:
             plot_ic_timeseries(ic_results[h]['ic_series'], h,
                                ic_results[h]['stats'])

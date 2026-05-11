@@ -27,7 +27,7 @@ ai_state=ai_heat.compute_ai_heat_from_panel(panel,github_ts=github_ts,news_ts=ne
 try:
     mismatch=template_cluster.compute_template_affinity(panel,recent_only=False,recent_days=20)
 except:
-    mismatch=template_cluster.compute_template_affinity_proxy(panel)
+    mismatch=template_cluster.compute_template_affinity(panel, n_clusters=3, recent_only=False, recent_days=20, lookback_days=20)
 qual=quality.compute_quality_score(panel)
 res_weak=residual.compute_residual_weakness(panel)
 nonfund=residual.compute_non_fundamental_ok(panel)

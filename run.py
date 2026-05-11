@@ -208,18 +208,14 @@ def main():
                 f'max={ai_state[c].max():.3f}'
             )
 
-    try:
-        mismatch = template_cluster.compute_template_affinity(
-            panel,
-            n_clusters=3,
-            recent_only=False,
-            recent_days=20,
-            lookback_days=20,
-        )
-        print(' Template clustering: KMeans full-history version used.')
-    except Exception as e:
-        print(f' Template clustering failed; fallback to proxy: {type(e).__name__}: {e}')
-        mismatch = template_cluster.compute_template_affinity_proxy(panel)
+    mismatch = template_cluster.compute_template_affinity(
+        panel,
+        n_clusters=3,
+        recent_only=False,
+        recent_days=20,
+        lookback_days=20,
+    )
+    print(' Template clustering: KMeans full-history version.')
     print('  MismatchScore range: [{:.3f}, {:.3f}]'.format(
         mismatch['MismatchScore'].min(), mismatch['MismatchScore'].max()))
 
@@ -260,7 +256,7 @@ def main():
     panel = hamr_factor.compute_hamr(
         panel, ai_state, mismatch, qual, mispricing, vacuum, liq, trap
     )
-    panel = hamr_factor.compute_forward_returns(panel)
+    panel = hamr_factor.compute_forward_returns(panel, horizons=(1, 5, 10, 20, 60, 120))
 
     # Add diagnostic HAMR variants
     panel = hamr_factor.add_hamr_diagnostic_variants(panel)
@@ -271,7 +267,7 @@ def main():
     sep('Step 8: IC Analysis')
     from src.ic_test import full_ic_analysis
     ic_results = full_ic_analysis(panel, factor_col='hamr_zscore',
-                                   horizons=(1, 5, 10, 20))
+                                   horizons=(1, 5, 10, 20, 60, 120))
 
     print(f'\n  {"Horizon":>6s} | {"IC Mean":>8s} | {"ICIR":>7s} | '
           f'{"NW t":>7s} | {"IC>0":>6s} | Verdict')
@@ -360,7 +356,7 @@ def main():
             ic_tmp = full_ic_analysis(
                 panel,
                 factor_col=fac,
-                horizons=(5, 10, 20)
+                horizons=(5, 10, 20, 60, 120)
             )
 
             for h, d in sorted(ic_tmp.items()):
