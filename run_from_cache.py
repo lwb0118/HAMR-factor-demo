@@ -57,7 +57,9 @@ def main():
     news_ts = build_news_timeseries()
     search_ts = load_search_aiheat()
     if search_ts is not None:
-        print(f'    Search AIHeat: {len(search_ts)} data points loaded')
+        print(f'    Search AIHeat loaded: {len(search_ts)} rows')
+    else:
+        print('    Search AIHeat not found; using neutral 0.5')
 
     # Guba data (may take time, skip if needed)
     from src.guba_data import fetch_universe_posts, compute_community_aiheat, compute_stock_attention

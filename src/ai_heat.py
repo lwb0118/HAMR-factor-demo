@@ -222,7 +222,9 @@ def load_search_aiheat(path=None):
     """
     Load manually prepared search AIHeat.
 
-    Expected columns: date, search_score
+    Accepts two formats:
+    1. Wide: date, search_score
+    2. Long: date, keyword, source, value → auto-averaged to search_score
 
     search_score can be Google Trends / Baidu Index / WeChat Index,
     normalized to 0-100 or 0-1.
@@ -237,8 +239,13 @@ def load_search_aiheat(path=None):
 
     df = pd.read_csv(path)
 
-    if "date" not in df.columns or "search_score" not in df.columns:
-        raise ValueError("search_aiheat.csv must contain date, search_score")
+    # Handle long-format CSV (date, keyword, source, value)
+    if 'value' in df.columns and 'date' in df.columns:
+        avg_df = df.groupby('date')['value'].mean().reset_index()
+        avg_df.columns = ['date', 'search_score']
+        df = avg_df
+    elif 'search_score' not in df.columns:
+        raise ValueError("search_aiheat.csv must contain date and either search_score or value column")
 
     df["date"] = pd.to_datetime(df["date"])
     df["search_score"] = pd.to_numeric(df["search_score"], errors="coerce")
