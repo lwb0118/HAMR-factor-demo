@@ -104,4 +104,14 @@ def build_news_timeseries():
         return None
 
     df = pd.DataFrame(rows).sort_values('date')
+
+    # FIX: If only sparse data available, use mean intensity as proxy
+    # for all historical dates. Mark as proxy in output.
+    if len(df) < 30:
+        mean_intensity = df['news_intensity'].mean()
+        print(f'    News: only {len(df)} days cached, using mean={mean_intensity:.4f} as proxy')
+        df['_is_proxy'] = True
+    else:
+        df['_is_proxy'] = False
+
     return df
