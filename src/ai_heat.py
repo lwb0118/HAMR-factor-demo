@@ -112,6 +112,7 @@ def compute_ai_heat_from_panel(
     elif github_data and github_data.get("stars", 0) > 0:
         stars = github_data.get("stars", 0)
         forks = github_data.get("forks", 0)
+        # FIX: assign scalar to entire series, not a single value
         daily["github_aiheat"] = min(
             1.0,
             max(0.0, 0.7 * stars / 5000 + 0.3 * forks / 1000),
@@ -129,6 +130,9 @@ def compute_ai_heat_from_panel(
             on="date",
             how="left",
         )
+
+        # FIX: forward-fill monthly data to daily, then backfill initial NaN
+        daily["search_score"] = daily["search_score"].ffill().bfill()
 
         daily["search_aiheat"] = (
             daily["search_score"]
